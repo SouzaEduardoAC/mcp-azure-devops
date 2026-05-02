@@ -233,6 +233,58 @@ public sealed class WorkItemTools
         }, JsonOptions);
     }
 
+    [McpServerTool(Name = "get_work_item_attachments")]
+    [Description("Lists files attached to a work item. Returns each attachment's name, size (bytes), upload/modified dates, optional comment, and download URL. Authenticate with the same PAT to fetch the binary content from the URL.")]
+    public async Task<string> GetWorkItemAttachments(
+        [Description("The ID of the work item")] int workItemId,
+        [Description("The project name (optional if default project is configured)")] string? project = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (workItemId <= 0)
+        {
+            return JsonSerializer.Serialize(new { error = "Work item ID must be a positive integer" }, JsonOptions);
+        }
+
+        var attachments = await _azureDevOpsService.GetWorkItemAttachmentsAsync(workItemId, project, cancellationToken);
+
+        return JsonSerializer.Serialize(new
+        {
+            workItemId,
+            count = attachments.Count,
+            attachments
+        }, JsonOptions);
+    }
+
+    [McpServerTool(Name = "get_work_item_attachment_content")]
+    [Description("Downloads the content of a work item attachment by its GUID (use get_work_item_attachments to discover GUIDs) and returns it inline. Text files come back as UTF-8; binary files as base64-encoded bytes. Refuses files larger than maxBytes (default 10 MB) — for those, use the URL from get_work_item_attachments and download out-of-band.")]
+    public async Task<string> GetWorkItemAttachmentContent(
+        [Description("The attachment GUID (e.g., '2ee06d3b-4ea4-4390-80de-474a4e1e4355')")] string attachmentId,
+        [Description("Optional original filename (echoed back in the response)")] string? fileName = null,
+        [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("Maximum bytes to download (default 10485760 = 10 MB). Larger attachments are rejected.")] int maxBytes = 10 * 1024 * 1024,
+        CancellationToken cancellationToken = default)
+    {
+        if (!Guid.TryParse(attachmentId, out var guid))
+        {
+            return JsonSerializer.Serialize(new { error = "attachmentId must be a valid GUID" }, JsonOptions);
+        }
+
+        if (maxBytes <= 0)
+        {
+            return JsonSerializer.Serialize(new { error = "maxBytes must be positive" }, JsonOptions);
+        }
+
+        var content = await _azureDevOpsService.GetWorkItemAttachmentContentAsync(
+            guid, fileName, project, maxBytes, cancellationToken);
+
+        if (content is null)
+        {
+            return JsonSerializer.Serialize(new { error = $"Attachment {attachmentId} not found" }, JsonOptions);
+        }
+
+        return JsonSerializer.Serialize(content, JsonOptions);
+    }
+
     [McpServerTool(Name = "add_work_item_comment")]
     [Description("Adds a comment to a specific Azure DevOps work item. Use this to add notes, updates, or feedback to a work item.")]
     public async Task<string> AddWorkItemComment(
