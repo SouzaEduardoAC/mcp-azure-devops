@@ -76,6 +76,34 @@ public interface IAzureDevOpsService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets the attachments linked to a work item.
+    /// </summary>
+    /// <param name="workItemId">The work item ID.</param>
+    /// <param name="project">The project name (optional if default project is configured).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>List of attachments (filename, size, URL, timestamps).</returns>
+    Task<IReadOnlyList<WorkItemAttachmentDto>> GetWorkItemAttachmentsAsync(
+        int workItemId,
+        string? project = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Downloads the content of a work item attachment by its ID and returns it inline.
+    /// </summary>
+    /// <param name="attachmentId">The attachment GUID (from <see cref="GetWorkItemAttachmentsAsync"/>).</param>
+    /// <param name="fileName">Optional filename, used in the response.</param>
+    /// <param name="project">The project name (optional if default project is configured).</param>
+    /// <param name="maxBytes">Maximum bytes to download (default 10 MB). Larger attachments throw.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Attachment content as UTF-8 text or base64 bytes.</returns>
+    Task<WorkItemAttachmentContentDto?> GetWorkItemAttachmentContentAsync(
+        Guid attachmentId,
+        string? fileName = null,
+        string? project = null,
+        long maxBytes = 10 * 1024 * 1024,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Creates a new work item in the specified project.
     /// </summary>
     /// <param name="project">The project name.</param>
@@ -266,6 +294,26 @@ public interface IAzureDevOpsService
     Task<IReadOnlyList<PullRequestThreadDto>> GetPullRequestThreadsAsync(
         string repositoryNameOrId,
         int pullRequestId,
+        string? project = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Adds a comment to an existing comment thread on a pull request.
+    /// </summary>
+    /// <param name="repositoryNameOrId">The repository name or ID.</param>
+    /// <param name="pullRequestId">The pull request ID.</param>
+    /// <param name="threadId">The thread ID to comment on.</param>
+    /// <param name="content">The comment text (Markdown supported).</param>
+    /// <param name="parentCommentId">Optional parent comment ID when replying to a specific comment.</param>
+    /// <param name="project">The project name (optional if default project is configured).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The created comment.</returns>
+    Task<PullRequestCommentDto> AddPullRequestThreadCommentAsync(
+        string repositoryNameOrId,
+        int pullRequestId,
+        int threadId,
+        string content,
+        int? parentCommentId = null,
         string? project = null,
         CancellationToken cancellationToken = default);
 

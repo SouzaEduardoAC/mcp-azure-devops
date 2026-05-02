@@ -136,6 +136,49 @@ public sealed class PullRequestTools
         }, JsonOptions);
     }
 
+    [McpServerTool(Name = "add_pull_request_thread_comment")]
+    [Description("Adds a comment to an existing comment thread on a pull request. Use this to reply to discussions returned by get_pull_request_threads. Pass parentCommentId to reply to a specific comment within the thread; omit it to add a top-level comment.")]
+    public async Task<string> AddPullRequestThreadComment(
+        [Description("The repository name or ID")] string repositoryNameOrId,
+        [Description("The pull request ID")] int pullRequestId,
+        [Description("The thread ID (from get_pull_request_threads)")] int threadId,
+        [Description("The comment text (Markdown supported)")] string content,
+        [Description("Optional parent comment ID when replying to a specific comment in the thread")] int? parentCommentId = null,
+        [Description("The project name (optional if default project is configured)")] string? project = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(repositoryNameOrId))
+        {
+            return JsonSerializer.Serialize(new { error = "Repository name or ID is required" }, JsonOptions);
+        }
+
+        if (pullRequestId <= 0)
+        {
+            return JsonSerializer.Serialize(new { error = "Pull request ID must be a positive integer" }, JsonOptions);
+        }
+
+        if (threadId <= 0)
+        {
+            return JsonSerializer.Serialize(new { error = "Thread ID must be a positive integer" }, JsonOptions);
+        }
+
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return JsonSerializer.Serialize(new { error = "Comment content cannot be empty" }, JsonOptions);
+        }
+
+        var comment = await _azureDevOpsService.AddPullRequestThreadCommentAsync(
+            repositoryNameOrId, pullRequestId, threadId, content,
+            parentCommentId, project, cancellationToken);
+
+        return JsonSerializer.Serialize(new
+        {
+            success = true,
+            message = $"Comment added to thread {threadId} on pull request {pullRequestId}",
+            comment
+        }, JsonOptions);
+    }
+
     [McpServerTool(Name = "search_pull_requests")]
     [Description("Searches pull requests by text in title or description. Useful for finding PRs related to specific features or bugs.")]
     public async Task<string> SearchPullRequests(

@@ -504,6 +504,204 @@ public sealed class AzureDevOpsService : IAzureDevOpsService, IDisposable
         }
     }
 
+    public async Task<IReadOnlyList<WorkItemAttachmentDto>> GetWorkItemAttachmentsAsync(
+        int workItemId,
+        string? project = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogDebug("Getting attachments for work item {WorkItemId}", workItemId);
+
+            var workItem = await _witClient.GetWorkItemAsync(
+                project: project ?? _options.DefaultProject,
+                id: workItemId,
+                expand: WorkItemExpand.Relations,
+                cancellationToken: cancellationToken);
+
+            if (workItem.Relations is null || workItem.Relations.Count == 0)
+            {
+                return [];
+            }
+
+            var attachments = new List<WorkItemAttachmentDto>();
+
+            foreach (var relation in workItem.Relations)
+            {
+                if (!string.Equals(relation.Rel, "AttachedFile", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                attachments.Add(MapToAttachmentDto(relation));
+            }
+
+            return attachments;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting attachments for work item {WorkItemId}", workItemId);
+            throw;
+        }
+    }
+
+    public async Task<WorkItemAttachmentContentDto?> GetWorkItemAttachmentContentAsync(
+        Guid attachmentId,
+        string? fileName = null,
+        string? project = null,
+        long maxBytes = 10 * 1024 * 1024,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogDebug("Downloading attachment {AttachmentId}", attachmentId);
+
+            using var stream = await _witClient.GetAttachmentContentAsync(
+                project: project ?? _options.DefaultProject,
+                id: attachmentId,
+                cancellationToken: cancellationToken);
+
+            if (stream is null)
+            {
+                return null;
+            }
+
+            var bytes = await ReadStreamWithLimitAsync(stream, maxBytes, cancellationToken);
+            var isBinary = LooksBinary(bytes);
+
+            return new WorkItemAttachmentContentDto
+            {
+                Id = attachmentId,
+                FileName = fileName,
+                Size = bytes.LongLength,
+                IsBinary = isBinary,
+                Encoding = isBinary ? "base64" : "utf-8",
+                Content = isBinary ? Convert.ToBase64String(bytes) : System.Text.Encoding.UTF8.GetString(bytes)
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error downloading attachment {AttachmentId}", attachmentId);
+            throw;
+        }
+    }
+
+    private static async Task<byte[]> ReadStreamWithLimitAsync(Stream stream, long maxBytes, CancellationToken cancellationToken)
+    {
+        using var ms = new MemoryStream();
+        var buffer = new byte[81920];
+        long total = 0;
+
+        while (true)
+        {
+            var read = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken);
+            if (read == 0)
+            {
+                break;
+            }
+
+            total += read;
+            if (total > maxBytes)
+            {
+                throw new InvalidOperationException(
+                    $"Attachment exceeds the {maxBytes:N0}-byte limit. Use the URL from get_work_item_attachments to download it directly.");
+            }
+
+            ms.Write(buffer, 0, read);
+        }
+
+        return ms.ToArray();
+    }
+
+    private static bool LooksBinary(byte[] bytes)
+    {
+        var sample = Math.Min(bytes.Length, 8000);
+        for (var i = 0; i < sample; i++)
+        {
+            if (bytes[i] == 0)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static WorkItemAttachmentDto MapToAttachmentDto(WorkItemRelation relation)
+    {
+        var attributes = relation.Attributes;
+
+        string? name = null;
+        long? size = null;
+        string? comment = null;
+        DateTime? createdDate = null;
+        DateTime? modifiedDate = null;
+
+        if (attributes != null)
+        {
+            if (attributes.TryGetValue("name", out var nameValue))
+            {
+                name = nameValue?.ToString();
+            }
+
+            if (attributes.TryGetValue("resourceSize", out var sizeValue) && sizeValue != null)
+            {
+                size = Convert.ToInt64(sizeValue);
+            }
+
+            if (attributes.TryGetValue("comment", out var commentValue))
+            {
+                comment = commentValue?.ToString();
+            }
+
+            if (attributes.TryGetValue("resourceCreatedDate", out var createdValue)
+                && DateTime.TryParse(createdValue?.ToString(), out var parsedCreated))
+            {
+                createdDate = parsedCreated;
+            }
+
+            if (attributes.TryGetValue("resourceModifiedDate", out var modifiedValue)
+                && DateTime.TryParse(modifiedValue?.ToString(), out var parsedModified))
+            {
+                modifiedDate = parsedModified;
+            }
+        }
+
+        return new WorkItemAttachmentDto
+        {
+            Id = ExtractAttachmentId(relation.Url),
+            Name = name,
+            Size = size,
+            Comment = comment,
+            CreatedDate = createdDate,
+            ModifiedDate = modifiedDate,
+            Url = relation.Url
+        };
+    }
+
+    private static Guid? ExtractAttachmentId(string? url)
+    {
+        if (string.IsNullOrEmpty(url))
+        {
+            return null;
+        }
+
+        // URL format: https://{host}/{org}/{project}/_apis/wit/attachments/{guid}[?...]
+        var lastSlash = url.LastIndexOf('/');
+        if (lastSlash < 0 || lastSlash == url.Length - 1)
+        {
+            return null;
+        }
+
+        var idPart = url[(lastSlash + 1)..];
+        var queryStart = idPart.IndexOf('?');
+        if (queryStart >= 0)
+        {
+            idPart = idPart[..queryStart];
+        }
+
+        return Guid.TryParse(idPart, out var id) ? id : null;
+    }
+
     public async Task<WorkItemDto> CreateWorkItemAsync(
         string project,
         string workItemType,
@@ -1139,6 +1337,60 @@ public sealed class AzureDevOpsService : IAzureDevOpsService, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting threads for pull request {PullRequestId}", pullRequestId);
+            throw;
+        }
+    }
+
+    public async Task<PullRequestCommentDto> AddPullRequestThreadCommentAsync(
+        string repositoryNameOrId,
+        int pullRequestId,
+        int threadId,
+        string content,
+        int? parentCommentId = null,
+        string? project = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var projectName = project ?? _options.DefaultProject;
+            _logger.LogDebug(
+                "Adding comment to thread {ThreadId} on pull request {PullRequestId}",
+                threadId,
+                pullRequestId);
+
+            var comment = new Microsoft.TeamFoundation.SourceControl.WebApi.Comment
+            {
+                Content = content,
+                ParentCommentId = parentCommentId.HasValue ? (short)parentCommentId.Value : (short)0,
+                CommentType = CommentType.Text
+            };
+
+            var created = await _gitClient.CreateCommentAsync(
+                comment: comment,
+                repositoryId: repositoryNameOrId,
+                pullRequestId: pullRequestId,
+                threadId: threadId,
+                project: projectName,
+                cancellationToken: cancellationToken);
+
+            return new PullRequestCommentDto
+            {
+                Id = created.Id,
+                ParentCommentId = created.ParentCommentId,
+                Content = created.Content,
+                Author = created.Author?.DisplayName,
+                PublishedDate = created.PublishedDate,
+                LastUpdatedDate = created.LastUpdatedDate,
+                CommentType = created.CommentType.ToString()
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Error adding comment to thread {ThreadId} on pull request {PullRequestId}",
+                threadId,
+                pullRequestId);
             throw;
         }
     }
