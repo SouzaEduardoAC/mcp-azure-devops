@@ -366,7 +366,15 @@ public sealed class AzureDevOpsService : IAzureDevOpsService, IDisposable
 
             foreach (var relation in workItem.Relations)
             {
-                if (relation.Rel == "ArtifactLink" && !string.IsNullOrEmpty(relation.Url))
+                if (relation.Rel == "System.LinkTypes.Hierarchy-Reverse" && !string.IsNullOrEmpty(relation.Url))
+                {
+                    var lastSlash = relation.Url.LastIndexOf('/');
+                    if (lastSlash >= 0 && int.TryParse(relation.Url[(lastSlash + 1)..], out var parentIdFromRelation))
+                    {
+                        dto = dto with { ParentId = parentIdFromRelation };
+                    }
+                }
+                else if (relation.Rel == "ArtifactLink" && !string.IsNullOrEmpty(relation.Url))
                 {
                     // Commit URL format: vstfs:///Git/Commit/{projectId}%2F{repoId}%2F{commitId}
                     // Pull Request URL format: vstfs:///Git/PullRequestId/{projectId}%2F{repoId}%2F{prId}
