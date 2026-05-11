@@ -76,6 +76,28 @@ public interface IAzureDevOpsService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets the comments for a work item, pageable.
+    /// </summary>
+    /// <param name="workItemId">The work item ID.</param>
+    /// <param name="project">The project name (optional if default project is configured).</param>
+    /// <param name="top">Maximum number of comments to return per page.</param>
+    /// <param name="continuationToken">Continuation token from a prior call to fetch the next page.</param>
+    /// <param name="includeDeleted">Whether to include deleted comments.</param>
+    /// <param name="order">Sort order: "asc" (oldest first) or "desc" (newest first).</param>
+    /// <param name="includeRenderedText">If true, expand comments to include rendered HTML text.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A page of work item comments with pagination metadata.</returns>
+    Task<WorkItemCommentsResultDto> GetWorkItemCommentsAsync(
+        int workItemId,
+        string? project = null,
+        int? top = null,
+        string? continuationToken = null,
+        bool includeDeleted = false,
+        string? order = null,
+        bool includeRenderedText = false,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gets the attachments linked to a work item.
     /// </summary>
     /// <param name="workItemId">The work item ID.</param>

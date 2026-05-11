@@ -128,6 +128,11 @@ public class WorkItemCommentDtoTests
         Assert.Contains("Text", properties);
         Assert.Contains("CreatedBy", properties);
         Assert.Contains("CreatedDate", properties);
-        Assert.Equal(5, properties.Count);
+        Assert.Contains("ModifiedBy", properties);
+        Assert.Contains("ModifiedDate", properties);
+        Assert.Contains("Version", properties);
+        Assert.Contains("IsDeleted", properties);
+        Assert.Contains("Url", properties);
+        Assert.Contains("Format", properties);
     }
 }

@@ -614,6 +614,112 @@ public class WorkItemToolsTests
 
     #endregion
 
+    #region GetWorkItemComments Tests
+
+    [Fact]
+    public async Task GetWorkItemComments_WithValidId_ShouldReturnSerializedResult()
+    {
+        var serviceResult = new WorkItemCommentsResultDto
+        {
+            Comments = new List<WorkItemCommentDto>
+            {
+                new() { Id = 1, WorkItemId = 123, Text = "First comment", CreatedBy = "Alice" },
+                new() { Id = 2, WorkItemId = 123, Text = "Second comment", CreatedBy = "Bob" }
+            },
+            TotalCount = 2,
+            Count = 2
+        };
+
+        _mockService
+            .Setup(s => s.GetWorkItemCommentsAsync(123, null, null, null, false, null, false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(serviceResult);
+
+        var result = await _tools.GetWorkItemComments(123);
+
+        Assert.Contains("\"totalCount\": 2", result);
+        Assert.Contains("First comment", result);
+        Assert.Contains("Second comment", result);
+    }
+
+    [Fact]
+    public async Task GetWorkItemComments_WithInvalidId_ShouldReturnError()
+    {
+        var result = await _tools.GetWorkItemComments(0);
+
+        Assert.Contains("error", result);
+        Assert.Contains("workItemId", result);
+    }
+
+    [Fact]
+    public async Task GetWorkItemComments_WithNonPositiveTop_ShouldReturnError()
+    {
+        var result = await _tools.GetWorkItemComments(123, top: 0);
+
+        Assert.Contains("error", result);
+        Assert.Contains("top", result);
+    }
+
+    [Fact]
+    public async Task GetWorkItemComments_WithInvalidOrder_ShouldReturnError()
+    {
+        var result = await _tools.GetWorkItemComments(123, order: "sideways");
+
+        Assert.Contains("error", result);
+        Assert.Contains("order", result);
+    }
+
+    [Fact]
+    public async Task GetWorkItemComments_WithAllOptionalArgs_ShouldPassThemToService()
+    {
+        var serviceResult = new WorkItemCommentsResultDto
+        {
+            Comments = Array.Empty<WorkItemCommentDto>(),
+            TotalCount = 0,
+            Count = 0,
+            ContinuationToken = null
+        };
+
+        _mockService
+            .Setup(s => s.GetWorkItemCommentsAsync(
+                123, "MyProject", 50, "token-xyz", true, "desc", true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(serviceResult);
+
+        await _tools.GetWorkItemComments(
+            workItemId: 123,
+            project: "MyProject",
+            top: 50,
+            continuationToken: "token-xyz",
+            includeDeleted: true,
+            order: "desc",
+            includeRenderedText: true);
+
+        _mockService.Verify(s => s.GetWorkItemCommentsAsync(
+            123, "MyProject", 50, "token-xyz", true, "desc", true, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetWorkItemComments_WithContinuationToken_ShouldReturnTokenInResponse()
+    {
+        var serviceResult = new WorkItemCommentsResultDto
+        {
+            Comments = new List<WorkItemCommentDto> { new() { Id = 1, WorkItemId = 123 } },
+            TotalCount = 250,
+            Count = 1,
+            ContinuationToken = "next-page-token"
+        };
+
+        _mockService
+            .Setup(s => s.GetWorkItemCommentsAsync(123, null, null, null, false, null, false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(serviceResult);
+
+        var result = await _tools.GetWorkItemComments(123);
+
+        Assert.Contains("\"continuationToken\": \"next-page-token\"", result);
+        Assert.Contains("\"totalCount\": 250", result);
+    }
+
+    #endregion
+
     #region CreateWorkItem Tests
 
     [Fact]

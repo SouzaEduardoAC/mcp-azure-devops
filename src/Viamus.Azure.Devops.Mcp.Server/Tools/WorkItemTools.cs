@@ -307,6 +307,50 @@ public sealed class WorkItemTools
         }, JsonOptions);
     }
 
+    [McpServerTool(Name = "get_work_item_comments")]
+    [Description("Gets the comments (discussion history) of a specific Azure DevOps work item. Returns each comment's author, text, creation/modification timestamps, and supports pagination via continuationToken.")]
+    public async Task<string> GetWorkItemComments(
+        [Description("The ID of the work item whose comments will be retrieved")] int workItemId,
+        [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("Maximum number of comments to return per page (default: 200)")] int? top = null,
+        [Description("Continuation token from a previous response to fetch the next page")] string? continuationToken = null,
+        [Description("Whether to include deleted comments (default: false)")] bool includeDeleted = false,
+        [Description("Sort order: 'asc' (oldest first) or 'desc' (newest first). Defaults to server order.")] string? order = null,
+        [Description("If true, includes the rendered HTML of each comment in addition to its Markdown text (default: false)")] bool includeRenderedText = false,
+        CancellationToken cancellationToken = default)
+    {
+        if (workItemId <= 0)
+        {
+            return JsonSerializer.Serialize(new { error = "workItemId must be a positive integer" }, JsonOptions);
+        }
+
+        if (top.HasValue && top.Value <= 0)
+        {
+            return JsonSerializer.Serialize(new { error = "top must be a positive integer" }, JsonOptions);
+        }
+
+        if (!string.IsNullOrWhiteSpace(order))
+        {
+            var normalized = order.Trim().ToLowerInvariant();
+            if (normalized is not ("asc" or "desc" or "ascending" or "descending" or "oldest" or "newest"))
+            {
+                return JsonSerializer.Serialize(new { error = "order must be 'asc' or 'desc'" }, JsonOptions);
+            }
+        }
+
+        var result = await _azureDevOpsService.GetWorkItemCommentsAsync(
+            workItemId,
+            project,
+            top,
+            continuationToken,
+            includeDeleted,
+            order,
+            includeRenderedText,
+            cancellationToken);
+
+        return JsonSerializer.Serialize(result, JsonOptions);
+    }
+
     [McpServerTool(Name = "create_work_item")]
     [Description("Creates a new work item in Azure DevOps. Supports setting all standard fields plus custom fields via additionalFields.")]
     public async Task<string> CreateWorkItem(

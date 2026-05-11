@@ -496,14 +496,7 @@ public sealed class AzureDevOpsService : IAzureDevOpsService, IDisposable
                 workItemId: workItemId,
                 cancellationToken: cancellationToken);
 
-            return new WorkItemCommentDto
-            {
-                Id = createdComment.Id,
-                WorkItemId = workItemId,
-                Text = createdComment.Text,
-                CreatedBy = createdComment.CreatedBy?.DisplayName,
-                CreatedDate = createdComment.CreatedDate
-            };
+            return MapToCommentDto(createdComment, workItemId);
         }
         catch (Exception ex)
         {
@@ -511,6 +504,75 @@ public sealed class AzureDevOpsService : IAzureDevOpsService, IDisposable
             throw;
         }
     }
+
+    public async Task<WorkItemCommentsResultDto> GetWorkItemCommentsAsync(
+        int workItemId,
+        string? project = null,
+        int? top = null,
+        string? continuationToken = null,
+        bool includeDeleted = false,
+        string? order = null,
+        bool includeRenderedText = false,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogDebug("Getting comments for work item {WorkItemId}", workItemId);
+
+            CommentSortOrder? sortOrder = order?.Trim().ToLowerInvariant() switch
+            {
+                "asc" or "ascending" or "oldest" => CommentSortOrder.Asc,
+                "desc" or "descending" or "newest" => CommentSortOrder.Desc,
+                null or "" => null,
+                _ => throw new ArgumentException($"Invalid order '{order}'. Use 'asc' or 'desc'.", nameof(order))
+            };
+
+            CommentExpandOptions? expand = includeRenderedText ? CommentExpandOptions.RenderedText : null;
+
+            var list = await _witClient.GetCommentsAsync(
+                project: project ?? _options.DefaultProject,
+                workItemId: workItemId,
+                top: top,
+                continuationToken: continuationToken,
+                includeDeleted: includeDeleted,
+                expand: expand,
+                order: sortOrder,
+                cancellationToken: cancellationToken);
+
+            var mapped = (list.Comments ?? new List<Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models.Comment>())
+                .Select(c => MapToCommentDto(c, workItemId))
+                .ToList();
+
+            return new WorkItemCommentsResultDto
+            {
+                Comments = mapped,
+                TotalCount = list.TotalCount,
+                Count = list.Count,
+                ContinuationToken = list.ContinuationToken,
+                NextPage = list.NextPage?.ToString()
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting comments for work item {WorkItemId}", workItemId);
+            throw;
+        }
+    }
+
+    private static WorkItemCommentDto MapToCommentDto(Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models.Comment comment, int workItemId) => new()
+    {
+        Id = comment.Id,
+        WorkItemId = comment.WorkItemId != 0 ? comment.WorkItemId : workItemId,
+        Text = comment.Text,
+        CreatedBy = comment.CreatedBy?.DisplayName,
+        CreatedDate = comment.CreatedDate,
+        ModifiedBy = comment.ModifiedBy?.DisplayName,
+        ModifiedDate = comment.ModifiedDate,
+        Version = comment.Version,
+        IsDeleted = comment.IsDeleted,
+        Url = comment.Url,
+        Format = comment.Format.ToString()
+    };
 
     public async Task<IReadOnlyList<WorkItemAttachmentDto>> GetWorkItemAttachmentsAsync(
         int workItemId,

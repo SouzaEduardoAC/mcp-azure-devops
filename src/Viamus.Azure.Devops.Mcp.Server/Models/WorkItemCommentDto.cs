@@ -10,4 +10,10 @@ public sealed record WorkItemCommentDto
     public string? Text { get; init; }
     public string? CreatedBy { get; init; }
     public DateTime? CreatedDate { get; init; }
+    public string? ModifiedBy { get; init; }
+    public DateTime? ModifiedDate { get; init; }
+    public int? Version { get; init; }
+    public bool? IsDeleted { get; init; }
+    public string? Url { get; init; }
+    public string? Format { get; init; }
 }
