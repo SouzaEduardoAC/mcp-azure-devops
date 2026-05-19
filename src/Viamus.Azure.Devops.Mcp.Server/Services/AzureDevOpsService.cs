@@ -1411,6 +1411,77 @@ public sealed class AzureDevOpsService : IAzureDevOpsService, IDisposable
         }
     }
 
+    public async Task<PullRequestThreadDto> CreatePullRequestThreadAsync(
+        string repositoryNameOrId,
+        int pullRequestId,
+        string content,
+        string? filePath = null,
+        int? lineNumber = null,
+        int? endLineNumber = null,
+        string? project = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogDebug(
+                "Creating thread on pull request {PullRequestId} for repository {Repository}",
+                pullRequestId,
+                repositoryNameOrId);
+
+            var thread = new GitPullRequestCommentThread
+            {
+                Comments =
+                [
+                    new Microsoft.TeamFoundation.SourceControl.WebApi.Comment
+                    {
+                        Content = content,
+                        CommentType = CommentType.Text
+                    }
+                ],
+                Status = CommentThreadStatus.Active
+            };
+
+            if (!string.IsNullOrWhiteSpace(filePath) && lineNumber.HasValue)
+            {
+                var start = new CommentPosition
+                {
+                    Line = lineNumber.Value,
+                    Offset = 1
+                };
+
+                thread.ThreadContext = new CommentThreadContext
+                {
+                    FilePath = filePath,
+                    RightFileStart = start,
+                    RightFileEnd = new CommentPosition
+                    {
+                        Line = endLineNumber ?? lineNumber.Value,
+                        Offset = 1
+                    }
+                };
+            }
+
+            var created = await _gitClient.CreateThreadAsync(
+                commentThread: thread,
+                project: project ?? _options.DefaultProject,
+                repositoryId: repositoryNameOrId,
+                pullRequestId: pullRequestId,
+                userState: null,
+                cancellationToken: cancellationToken);
+
+            return MapToPullRequestThreadDto(created);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Error creating thread on pull request {PullRequestId} for repository {Repository}",
+                pullRequestId,
+                repositoryNameOrId);
+            throw;
+        }
+    }
+
     public async Task<PullRequestCommentDto> AddPullRequestThreadCommentAsync(
         string repositoryNameOrId,
         int pullRequestId,
@@ -1631,6 +1702,7 @@ public sealed class AzureDevOpsService : IAzureDevOpsService, IDisposable
             Status = thread.Status.ToString(),
             FilePath = thread.ThreadContext?.FilePath,
             LineNumber = thread.ThreadContext?.RightFileStart?.Line,
+            EndLineNumber = thread.ThreadContext?.RightFileEnd?.Line,
             PublishedDate = thread.PublishedDate,
             LastUpdatedDate = thread.LastUpdatedDate,
             Comments = thread.Comments?.Select(c => new PullRequestCommentDto

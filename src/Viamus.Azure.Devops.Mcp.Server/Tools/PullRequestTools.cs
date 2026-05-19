@@ -136,6 +136,60 @@ public sealed class PullRequestTools
         }, JsonOptions);
     }
 
+    [McpServerTool(Name = "create_pull_request_thread")]
+    [Description("Creates a new comment thread on a pull request. Omit filePath and lineNumber for a general PR discussion, or provide them to create an inline file comment.")]
+    public async Task<string> CreatePullRequestThread(
+        [Description("The repository name or ID")] string repositoryNameOrId,
+        [Description("The pull request ID")] int pullRequestId,
+        [Description("The initial comment text (Markdown supported)")] string content,
+        [Description("Optional file path for an inline thread, e.g. '/src/App.cs'")] string? filePath = null,
+        [Description("Optional line number for an inline thread on the right/new file")] int? lineNumber = null,
+        [Description("Optional ending line number for an inline thread range on the right/new file")] int? endLineNumber = null,
+        [Description("The project name (optional if default project is configured)")] string? project = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(repositoryNameOrId))
+        {
+            return JsonSerializer.Serialize(new { error = "Repository name or ID is required" }, JsonOptions);
+        }
+
+        if (pullRequestId <= 0)
+        {
+            return JsonSerializer.Serialize(new { error = "Pull request ID must be a positive integer" }, JsonOptions);
+        }
+
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return JsonSerializer.Serialize(new { error = "Comment content cannot be empty" }, JsonOptions);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filePath) && (!lineNumber.HasValue || lineNumber <= 0))
+        {
+            return JsonSerializer.Serialize(new { error = "Line number must be a positive integer when filePath is provided" }, JsonOptions);
+        }
+
+        if (lineNumber.HasValue && string.IsNullOrWhiteSpace(filePath))
+        {
+            return JsonSerializer.Serialize(new { error = "File path is required when lineNumber is provided" }, JsonOptions);
+        }
+
+        if (endLineNumber.HasValue && (!lineNumber.HasValue || endLineNumber < lineNumber))
+        {
+            return JsonSerializer.Serialize(new { error = "End line number must be greater than or equal to lineNumber" }, JsonOptions);
+        }
+
+        var thread = await _azureDevOpsService.CreatePullRequestThreadAsync(
+            repositoryNameOrId, pullRequestId, content,
+            filePath, lineNumber, endLineNumber, project, cancellationToken);
+
+        return JsonSerializer.Serialize(new
+        {
+            success = true,
+            message = $"Thread {thread.Id} created on pull request {pullRequestId}",
+            thread
+        }, JsonOptions);
+    }
+
     [McpServerTool(Name = "add_pull_request_thread_comment")]
     [Description("Adds a comment to an existing comment thread on a pull request. Use this to reply to discussions returned by get_pull_request_threads. Pass parentCommentId to reply to a specific comment within the thread; omit it to add a top-level comment.")]
     public async Task<string> AddPullRequestThreadComment(

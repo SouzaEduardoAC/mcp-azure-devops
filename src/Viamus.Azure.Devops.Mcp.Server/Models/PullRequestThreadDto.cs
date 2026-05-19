@@ -9,6 +9,7 @@ public sealed record PullRequestThreadDto
     public string? Status { get; init; }
     public string? FilePath { get; init; }
     public int? LineNumber { get; init; }
+    public int? EndLineNumber { get; init; }
     public DateTime? PublishedDate { get; init; }
     public DateTime? LastUpdatedDate { get; init; }
     public List<PullRequestCommentDto>? Comments { get; init; }
