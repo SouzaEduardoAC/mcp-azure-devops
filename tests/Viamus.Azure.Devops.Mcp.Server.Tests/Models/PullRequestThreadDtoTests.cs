@@ -20,6 +20,7 @@ public class PullRequestThreadDtoTests
             Status = "Active",
             FilePath = "/src/Program.cs",
             LineNumber = 42,
+            EndLineNumber = 45,
             PublishedDate = new DateTime(2024, 1, 15, 10, 30, 0),
             LastUpdatedDate = new DateTime(2024, 1, 16, 14, 0, 0)
         };
@@ -30,6 +31,7 @@ public class PullRequestThreadDtoTests
         Assert.Contains("\"status\":\"Active\"", json);
         Assert.Contains("\"filePath\":\"/src/Program.cs\"", json);
         Assert.Contains("\"lineNumber\":42", json);
+        Assert.Contains("\"endLineNumber\":45", json);
     }
 
     [Fact]
@@ -40,7 +42,8 @@ public class PullRequestThreadDtoTests
             "id": 456,
             "status": "Fixed",
             "filePath": "/tests/Test.cs",
-            "lineNumber": 100
+            "lineNumber": 100,
+            "endLineNumber": 105
         }
         """;
 
@@ -51,6 +54,7 @@ public class PullRequestThreadDtoTests
         Assert.Equal("Fixed", dto.Status);
         Assert.Equal("/tests/Test.cs", dto.FilePath);
         Assert.Equal(100, dto.LineNumber);
+        Assert.Equal(105, dto.EndLineNumber);
     }
 
     [Fact]
@@ -104,12 +108,14 @@ public class PullRequestThreadDtoTests
             Status = null,
             FilePath = null,
             LineNumber = null,
+            EndLineNumber = null,
             Comments = null
         };
 
         Assert.Null(dto.Status);
         Assert.Null(dto.FilePath);
         Assert.Null(dto.LineNumber);
+        Assert.Null(dto.EndLineNumber);
         Assert.Null(dto.Comments);
     }
 }

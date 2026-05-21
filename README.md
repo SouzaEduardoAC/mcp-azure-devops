@@ -148,6 +148,7 @@ This project implements an MCP server that exposes tools for querying and managi
 | `get_pull_request` | Gets details of a specific pull request by ID within a repository |
 | `get_pull_request_by_id` | Gets details of a pull request by ID only, searching across all repositories in the project |
 | `get_pull_request_threads` | Gets comment threads for a pull request |
+| `create_pull_request_thread` | Creates a new comment thread on a pull request, either as a general discussion or inline file comment |
 | `search_pull_requests` | Searches pull requests by text in title or description |
 | `query_pull_requests` | Advanced query with multiple combined filters |
 | `create_pull_request` | Creates a new pull request with title, description, source/target branches, draft flag, reviewers, and linked work items |
@@ -386,6 +387,8 @@ After configuring the MCP client, you can ask questions like:
 - "Get details of pull request #123"
 - "Find pull request #456 anywhere in the project"
 - "What comments are on PR #456?"
+- "Create a new comment thread on PR #456 saying 'Please review the validation logic'"
+- "Add an inline PR comment on /src/App.cs line 42"
 - "Search for pull requests related to 'authentication'"
 - "Show me PRs targeting the 'main' branch"
 - "List PRs created by user@email.com"
@@ -565,7 +568,7 @@ Complete pull request details including:
 Reviewer information including DisplayName, Vote (-10 to 10), IsRequired, and HasDeclined status.
 
 #### PullRequestThreadDto
-Comment thread with Id, Status (Active, Fixed, etc.), FilePath, LineNumber, and Comments list.
+Comment thread with Id, Status (Active, Fixed, etc.), FilePath, LineNumber, EndLineNumber, and Comments list.
 
 #### PullRequestCommentDto
 Individual comment with Id, Content, Author, timestamps, and CommentType.
