@@ -322,6 +322,167 @@ public class PullRequestToolsTests
 
     #endregion
 
+    #region CreatePullRequestThread Tests
+
+    [Fact]
+    public async Task CreatePullRequestThread_ShouldCreateGeneralThread()
+    {
+        var thread = new PullRequestThreadDto
+        {
+            Id = 10,
+            Status = "Active",
+            Comments = new List<PullRequestCommentDto>
+            {
+                new() { Id = 1, Content = "Please review this change" }
+            }
+        };
+
+        _mockService
+            .Setup(s => s.CreatePullRequestThreadAsync(
+                "repo",
+                123,
+                "Please review this change",
+                null,
+                null,
+                null,
+                null,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(thread);
+
+        var result = await _tools.CreatePullRequestThread("repo", 123, "Please review this change");
+
+        Assert.Contains("\"success\": true", result);
+        Assert.Contains("Thread 10 created on pull request 123", result);
+        Assert.Contains("\"id\": 10", result);
+        _mockService.Verify(s => s.CreatePullRequestThreadAsync(
+            "repo",
+            123,
+            "Please review this change",
+            null,
+            null,
+            null,
+            null,
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreatePullRequestThread_WithInlineRange_ShouldPassContextToService()
+    {
+        var thread = new PullRequestThreadDto
+        {
+            Id = 11,
+            Status = "Active",
+            FilePath = "/src/Program.cs",
+            LineNumber = 42,
+            EndLineNumber = 45
+        };
+
+        _mockService
+            .Setup(s => s.CreatePullRequestThreadAsync(
+                "repo",
+                123,
+                "Inline comment",
+                "/src/Program.cs",
+                42,
+                45,
+                "MyProject",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(thread);
+
+        var result = await _tools.CreatePullRequestThread(
+            "repo",
+            123,
+            "Inline comment",
+            "/src/Program.cs",
+            42,
+            45,
+            "MyProject");
+
+        Assert.Contains("\"success\": true", result);
+        Assert.Contains("\"filePath\": \"/src/Program.cs\"", result);
+        Assert.Contains("\"endLineNumber\": 45", result);
+        _mockService.Verify(s => s.CreatePullRequestThreadAsync(
+            "repo",
+            123,
+            "Inline comment",
+            "/src/Program.cs",
+            42,
+            45,
+            "MyProject",
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreatePullRequestThread_WithEmptyRepoName_ShouldReturnError()
+    {
+        var result = await _tools.CreatePullRequestThread("", 123, "Comment");
+
+        Assert.Contains("error", result);
+        Assert.Contains("Repository name or ID is required", result);
+        _mockService.Verify(s => s.CreatePullRequestThreadAsync(
+            It.IsAny<string>(),
+            It.IsAny<int>(),
+            It.IsAny<string>(),
+            It.IsAny<string?>(),
+            It.IsAny<int?>(),
+            It.IsAny<int?>(),
+            It.IsAny<string?>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreatePullRequestThread_WithInvalidPRId_ShouldReturnError()
+    {
+        var result = await _tools.CreatePullRequestThread("repo", 0, "Comment");
+
+        Assert.Contains("error", result);
+        Assert.Contains("Pull request ID must be a positive integer", result);
+    }
+
+    [Fact]
+    public async Task CreatePullRequestThread_WithEmptyContent_ShouldReturnError()
+    {
+        var result = await _tools.CreatePullRequestThread("repo", 123, "");
+
+        Assert.Contains("error", result);
+        Assert.Contains("Comment content cannot be empty", result);
+    }
+
+    [Fact]
+    public async Task CreatePullRequestThread_WithFilePathWithoutLineNumber_ShouldReturnError()
+    {
+        var result = await _tools.CreatePullRequestThread("repo", 123, "Comment", "/src/Program.cs");
+
+        Assert.Contains("error", result);
+        Assert.Contains("Line number must be a positive integer when filePath is provided", result);
+    }
+
+    [Fact]
+    public async Task CreatePullRequestThread_WithLineNumberWithoutFilePath_ShouldReturnError()
+    {
+        var result = await _tools.CreatePullRequestThread("repo", 123, "Comment", lineNumber: 42);
+
+        Assert.Contains("error", result);
+        Assert.Contains("File path is required when lineNumber is provided", result);
+    }
+
+    [Fact]
+    public async Task CreatePullRequestThread_WithEndLineBeforeStartLine_ShouldReturnError()
+    {
+        var result = await _tools.CreatePullRequestThread(
+            "repo",
+            123,
+            "Comment",
+            "/src/Program.cs",
+            42,
+            41);
+
+        Assert.Contains("error", result);
+        Assert.Contains("End line number must be greater than or equal to lineNumber", result);
+    }
+
+    #endregion
+
     #region SearchPullRequests Tests
 
     [Fact]

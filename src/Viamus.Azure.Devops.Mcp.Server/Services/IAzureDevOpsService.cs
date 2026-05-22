@@ -320,6 +320,28 @@ public interface IAzureDevOpsService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Creates a new comment thread on a pull request.
+    /// </summary>
+    /// <param name="repositoryNameOrId">The repository name or ID.</param>
+    /// <param name="pullRequestId">The pull request ID.</param>
+    /// <param name="content">The initial comment text (Markdown supported).</param>
+    /// <param name="filePath">Optional file path for an inline thread.</param>
+    /// <param name="lineNumber">Optional line number for an inline thread.</param>
+    /// <param name="endLineNumber">Optional ending line number for an inline thread range.</param>
+    /// <param name="project">The project name (optional if default project is configured).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The created comment thread.</returns>
+    Task<PullRequestThreadDto> CreatePullRequestThreadAsync(
+        string repositoryNameOrId,
+        int pullRequestId,
+        string content,
+        string? filePath = null,
+        int? lineNumber = null,
+        int? endLineNumber = null,
+        string? project = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Adds a comment to an existing comment thread on a pull request.
     /// </summary>
     /// <param name="repositoryNameOrId">The repository name or ID.</param>
