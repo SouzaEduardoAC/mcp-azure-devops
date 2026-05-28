@@ -128,6 +128,7 @@ This project implements an MCP server that exposes tools for querying and managi
 | `get_work_item_comments` | Reads comments (discussion history) of a work item, with pagination, sort order, and optional rendered HTML |
 | `create_work_item` | Creates a new work item (Bug, Task, User Story, etc.) with support for all standard fields, parent linking, and custom fields |
 | `update_work_item` | Updates an existing work item. Only specified fields are changed; omitted fields remain unchanged |
+| `link_work_items` | Links an existing work item to parent, child, predecessor, successor, or related work items |
 
 ### Git Repository Tools
 
@@ -370,6 +371,7 @@ After configuring the MCP client, you can ask questions like:
 - "Create a User Story assigned to John with priority 2 under parent #100"
 - "Update work item #1234 to change state to 'Resolved' and assign to Jane"
 - "Set the iteration path of work item #567 to 'Project\Sprint 3'"
+- "Link user story #567 to predecessor #123 and parent #100"
 
 ### Git Repositories
 

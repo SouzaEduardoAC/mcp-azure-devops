@@ -45,6 +45,24 @@ public interface IAzureDevOpsService
     Task<IReadOnlyList<WorkItemDto>> GetChildWorkItemsAsync(int parentWorkItemId, string? project = null, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Links an existing work item to one or more other work items.
+    /// </summary>
+    /// <param name="sourceWorkItemId">The work item ID to update with the new relation.</param>
+    /// <param name="targetWorkItemIds">The work item IDs to link to.</param>
+    /// <param name="relationType">The Azure DevOps relation reference name (for example, System.LinkTypes.Hierarchy-Reverse).</param>
+    /// <param name="comment">Optional relation comment.</param>
+    /// <param name="project">The project name (optional if default project is configured).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The updated source work item.</returns>
+    Task<WorkItemDto> LinkWorkItemsAsync(
+        int sourceWorkItemId,
+        IEnumerable<int> targetWorkItemIds,
+        string relationType,
+        string? comment = null,
+        string? project = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Queries work items using WIQL and returns paginated summary results.
     /// This is optimized for large result sets with reduced payload size.
     /// </summary>
