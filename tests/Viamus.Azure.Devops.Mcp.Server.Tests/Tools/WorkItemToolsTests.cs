@@ -395,6 +395,138 @@ public class WorkItemToolsTests
 
     #endregion
 
+    #region LinkWorkItems Tests
+
+    [Fact]
+    public async Task LinkWorkItems_WithPredecessors_ShouldLinkUsingDependencyReverse()
+    {
+        var workItem = new WorkItemDto { Id = 100, Title = "Story" };
+
+        _mockService
+            .Setup(s => s.LinkWorkItemsAsync(
+                100,
+                It.Is<IEnumerable<int>>(ids => ids.SequenceEqual(new[] { 10, 20 })),
+                "System.LinkTypes.Dependency-Reverse",
+                "Predecessor",
+                null,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(workItem);
+
+        var result = await _tools.LinkWorkItems(100, "10,20", "predecessor");
+
+        Assert.Contains("\"success\": true", result);
+        Assert.Contains("\"relationType\": \"System.LinkTypes.Dependency-Reverse\"", result);
+        Assert.Contains("\"targetWorkItemIds\":", result);
+        _mockService.Verify(s => s.LinkWorkItemsAsync(
+            100,
+            It.Is<IEnumerable<int>>(ids => ids.SequenceEqual(new[] { 10, 20 })),
+            "System.LinkTypes.Dependency-Reverse",
+            "Predecessor",
+            null,
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task LinkWorkItems_WithParent_ShouldLinkUsingHierarchyReverse()
+    {
+        var workItem = new WorkItemDto { Id = 100, Title = "Story", ParentId = 50 };
+
+        _mockService
+            .Setup(s => s.LinkWorkItemsAsync(
+                100,
+                It.Is<IEnumerable<int>>(ids => ids.SequenceEqual(new[] { 50 })),
+                "System.LinkTypes.Hierarchy-Reverse",
+                "Parent",
+                "MyProject",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(workItem);
+
+        var result = await _tools.LinkWorkItems(100, "50", "parent", project: "MyProject");
+
+        Assert.Contains("\"success\": true", result);
+        Assert.Contains("\"relationType\": \"System.LinkTypes.Hierarchy-Reverse\"", result);
+        _mockService.Verify(s => s.LinkWorkItemsAsync(
+            100,
+            It.Is<IEnumerable<int>>(ids => ids.SequenceEqual(new[] { 50 })),
+            "System.LinkTypes.Hierarchy-Reverse",
+            "Parent",
+            "MyProject",
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task LinkWorkItems_WithCustomComment_ShouldPassCommentToService()
+    {
+        var workItem = new WorkItemDto { Id = 100, Title = "Story" };
+
+        _mockService
+            .Setup(s => s.LinkWorkItemsAsync(
+                100,
+                It.Is<IEnumerable<int>>(ids => ids.SequenceEqual(new[] { 30 })),
+                "System.LinkTypes.Dependency-Forward",
+                "Blocks downstream story",
+                null,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(workItem);
+
+        await _tools.LinkWorkItems(100, "30", "successor", comment: "Blocks downstream story");
+
+        _mockService.Verify(s => s.LinkWorkItemsAsync(
+            100,
+            It.Is<IEnumerable<int>>(ids => ids.SequenceEqual(new[] { 30 })),
+            "System.LinkTypes.Dependency-Forward",
+            "Blocks downstream story",
+            null,
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task LinkWorkItems_WithInvalidSourceId_ShouldReturnError()
+    {
+        var result = await _tools.LinkWorkItems(0, "10", "predecessor");
+
+        Assert.Contains("error", result);
+        Assert.Contains("sourceWorkItemId", result);
+    }
+
+    [Fact]
+    public async Task LinkWorkItems_WithNoValidTargets_ShouldReturnError()
+    {
+        var result = await _tools.LinkWorkItems(100, "abc", "predecessor");
+
+        Assert.Contains("error", result);
+        Assert.Contains("No valid target work item IDs provided", result);
+    }
+
+    [Fact]
+    public async Task LinkWorkItems_WithSelfLink_ShouldReturnError()
+    {
+        var result = await _tools.LinkWorkItems(100, "100", "related");
+
+        Assert.Contains("error", result);
+        Assert.Contains("cannot be linked to itself", result);
+    }
+
+    [Fact]
+    public async Task LinkWorkItems_WithInvalidRelationType_ShouldReturnError()
+    {
+        var result = await _tools.LinkWorkItems(100, "10", "duplicate");
+
+        Assert.Contains("error", result);
+        Assert.Contains("relationType", result);
+    }
+
+    [Fact]
+    public async Task LinkWorkItems_WithMultipleParents_ShouldReturnError()
+    {
+        var result = await _tools.LinkWorkItems(100, "10;20", "parent");
+
+        Assert.Contains("error", result);
+        Assert.Contains("only have one parent", result);
+    }
+
+    #endregion
+
     #region GetRecentWorkItems Tests
 
     [Fact]

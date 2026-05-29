@@ -211,6 +211,65 @@ public sealed class AzureDevOpsService : IAzureDevOpsService, IDisposable
         }
     }
 
+    public async Task<WorkItemDto> LinkWorkItemsAsync(
+        int sourceWorkItemId,
+        IEnumerable<int> targetWorkItemIds,
+        string relationType,
+        string? comment = null,
+        string? project = null,
+        CancellationToken cancellationToken = default)
+    {
+        var targetIds = targetWorkItemIds.Distinct().ToList();
+        if (targetIds.Count == 0)
+        {
+            throw new ArgumentException("At least one target work item ID is required.", nameof(targetWorkItemIds));
+        }
+
+        try
+        {
+            _logger.LogDebug(
+                "Linking work item {SourceWorkItemId} to {TargetCount} work item(s) with relation {RelationType}",
+                sourceWorkItemId,
+                targetIds.Count,
+                relationType);
+
+            var patchDocument = new JsonPatchDocument();
+            var relationComment = string.IsNullOrWhiteSpace(comment) ? relationType : comment.Trim();
+
+            foreach (var targetId in targetIds)
+            {
+                patchDocument.Add(new JsonPatchOperation
+                {
+                    Operation = Operation.Add,
+                    Path = "/relations/-",
+                    Value = new
+                    {
+                        rel = relationType,
+                        url = BuildWorkItemUrl(targetId),
+                        attributes = new { comment = relationComment }
+                    }
+                });
+            }
+
+            var result = await _witClient.UpdateWorkItemAsync(
+                document: patchDocument,
+                id: sourceWorkItemId,
+                project: project ?? _options.DefaultProject,
+                cancellationToken: cancellationToken);
+
+            return MapToDto(result, includeAllFields: true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Error linking work item {SourceWorkItemId} with relation {RelationType}",
+                sourceWorkItemId,
+                relationType);
+            throw;
+        }
+    }
+
     public async Task<PaginatedResult<WorkItemSummaryDto>> QueryWorkItemsSummaryAsync(
         string wiqlQuery,
         string? project = null,
@@ -476,6 +535,9 @@ public sealed class AzureDevOpsService : IAzureDevOpsService, IDisposable
         }
         return null;
     }
+
+    private string BuildWorkItemUrl(int workItemId) =>
+        $"{_options.OrganizationUrl.TrimEnd('/')}/_apis/wit/workItems/{workItemId}";
 
     public async Task<WorkItemCommentDto> AddWorkItemCommentAsync(
         int workItemId,
@@ -879,7 +941,7 @@ public sealed class AzureDevOpsService : IAzureDevOpsService, IDisposable
                     Value = new
                     {
                         rel = "System.LinkTypes.Hierarchy-Reverse",
-                        url = $"{_options.OrganizationUrl}/_apis/wit/workItems/{parentId.Value}",
+                        url = BuildWorkItemUrl(parentId.Value),
                         attributes = new { comment = "Parent" }
                     }
                 });

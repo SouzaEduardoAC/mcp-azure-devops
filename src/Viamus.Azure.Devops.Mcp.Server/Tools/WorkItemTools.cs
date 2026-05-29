@@ -162,6 +162,69 @@ public sealed class WorkItemTools
         return JsonSerializer.Serialize(new { parentWorkItemId, count = workItems.Count, children = workItems }, JsonOptions);
     }
 
+    [McpServerTool(Name = "link_work_items")]
+    [Description("Links an existing Azure DevOps work item to one or more other work items. relationType accepts parent, child, predecessor, successor, related, or the matching System.LinkTypes.* reference name.")]
+    public async Task<string> LinkWorkItems(
+        [Description("The work item ID to update with the new link. For a story, this is the story ID.")] int sourceWorkItemId,
+        [Description("Comma- or semicolon-separated target work item IDs to link to (e.g., '123,456' or '123;456')")] string targetWorkItemIds,
+        [Description("Relation from the source work item's perspective: parent, child, predecessor, successor, related, or a System.LinkTypes.* reference name")] string relationType,
+        [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("Optional comment to store on the relation")] string? comment = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (sourceWorkItemId <= 0)
+        {
+            return JsonSerializer.Serialize(new { error = "sourceWorkItemId must be a positive integer" }, JsonOptions);
+        }
+
+        var targetIds = ParseWorkItemIds(targetWorkItemIds);
+        if (targetIds.Count == 0)
+        {
+            return JsonSerializer.Serialize(new { error = "No valid target work item IDs provided" }, JsonOptions);
+        }
+
+        if (targetIds.Contains(sourceWorkItemId))
+        {
+            return JsonSerializer.Serialize(new { error = "A work item cannot be linked to itself" }, JsonOptions);
+        }
+
+        var normalizedRelationType = NormalizeWorkItemRelationType(relationType);
+        if (normalizedRelationType is null)
+        {
+            return JsonSerializer.Serialize(new
+            {
+                error = "relationType must be one of: parent, child, predecessor, successor, related"
+            }, JsonOptions);
+        }
+
+        if (normalizedRelationType == "System.LinkTypes.Hierarchy-Reverse" && targetIds.Count > 1)
+        {
+            return JsonSerializer.Serialize(new { error = "A work item can only have one parent" }, JsonOptions);
+        }
+
+        var relationComment = string.IsNullOrWhiteSpace(comment)
+            ? GetDefaultRelationComment(normalizedRelationType)
+            : comment.Trim();
+
+        var workItem = await _azureDevOpsService.LinkWorkItemsAsync(
+            sourceWorkItemId,
+            targetIds,
+            normalizedRelationType,
+            relationComment,
+            project,
+            cancellationToken);
+
+        return JsonSerializer.Serialize(new
+        {
+            success = true,
+            message = $"Work item {sourceWorkItemId} linked to {targetIds.Count} work item(s)",
+            sourceWorkItemId,
+            targetWorkItemIds = targetIds,
+            relationType = normalizedRelationType,
+            workItem
+        }, JsonOptions);
+    }
+
     [McpServerTool(Name = "get_recent_work_items")]
     [Description("Gets recently changed work items with pagination. Returns a summary view (ID, Title, Type, State, Priority) to reduce payload size. Use get_work_item to get full details of a specific item.")]
     public async Task<string> GetRecentWorkItems(
@@ -477,6 +540,41 @@ public sealed class WorkItemTools
         }
     }
 
+    private static string? NormalizeWorkItemRelationType(string? relationType)
+    {
+        if (string.IsNullOrWhiteSpace(relationType))
+        {
+            return null;
+        }
+
+        var normalized = relationType
+            .Trim()
+            .Replace('_', '-')
+            .Replace(' ', '-')
+            .ToLowerInvariant();
+
+        return normalized switch
+        {
+            "parent" or "hierarchy-reverse" or "system.linktypes.hierarchy-reverse" => "System.LinkTypes.Hierarchy-Reverse",
+            "child" or "hierarchy-forward" or "system.linktypes.hierarchy-forward" => "System.LinkTypes.Hierarchy-Forward",
+            "predecessor" or "blocked-by" or "depends-on" or "dependency-reverse" or "system.linktypes.dependency-reverse" => "System.LinkTypes.Dependency-Reverse",
+            "successor" or "blocks" or "dependency-forward" or "system.linktypes.dependency-forward" => "System.LinkTypes.Dependency-Forward",
+            "related" or "system.linktypes.related" => "System.LinkTypes.Related",
+            _ => null
+        };
+    }
+
+    private static string GetDefaultRelationComment(string relationType) =>
+        relationType switch
+        {
+            "System.LinkTypes.Hierarchy-Reverse" => "Parent",
+            "System.LinkTypes.Hierarchy-Forward" => "Child",
+            "System.LinkTypes.Dependency-Reverse" => "Predecessor",
+            "System.LinkTypes.Dependency-Forward" => "Successor",
+            "System.LinkTypes.Related" => "Related",
+            _ => relationType
+        };
+
     private static List<int> ParseWorkItemIds(string workItemIds)
     {
         if (string.IsNullOrWhiteSpace(workItemIds))
@@ -485,7 +583,7 @@ public sealed class WorkItemTools
         }
 
         return workItemIds
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(id => int.TryParse(id, out var parsed) ? parsed : (int?)null)
             .Where(id => id.HasValue)
             .Select(id => id!.Value)
