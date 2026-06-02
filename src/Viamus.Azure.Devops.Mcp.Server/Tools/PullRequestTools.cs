@@ -233,6 +233,52 @@ public sealed class PullRequestTools
         }, JsonOptions);
     }
 
+    [McpServerTool(Name = "update_pull_request_thread_status")]
+    [Description("Updates the status of an existing pull request comment thread. Supports statuses/aliases such as active/open/reopen, fixed/resolve/resolved, closed/close, wontFix/wont-fix, byDesign/by-design, and pending.")]
+    public async Task<string> UpdatePullRequestThreadStatus(
+        [Description("The repository name or ID")] string repositoryNameOrId,
+        [Description("The pull request ID")] int pullRequestId,
+        [Description("The thread ID (from get_pull_request_threads)")] int threadId,
+        [Description("Target status: Active, Fixed, Closed, WontFix, ByDesign, Pending, or aliases like close/resolve")] string status,
+        [Description("The project name (optional if default project is configured)")] string? project = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(repositoryNameOrId))
+        {
+            return JsonSerializer.Serialize(new { error = "Repository name or ID is required" }, JsonOptions);
+        }
+
+        if (pullRequestId <= 0)
+        {
+            return JsonSerializer.Serialize(new { error = "Pull request ID must be a positive integer" }, JsonOptions);
+        }
+
+        if (threadId <= 0)
+        {
+            return JsonSerializer.Serialize(new { error = "Thread ID must be a positive integer" }, JsonOptions);
+        }
+
+        var normalizedStatus = NormalizeThreadStatus(status);
+        if (normalizedStatus is null)
+        {
+            return JsonSerializer.Serialize(new
+            {
+                error = "Unsupported thread status. Supported statuses are Active, Fixed, Closed, WontFix, ByDesign, and Pending. Aliases include open, reopen, resolve, resolved, close, closed, wont-fix, and by-design."
+            }, JsonOptions);
+        }
+
+        var thread = await _azureDevOpsService.UpdatePullRequestThreadStatusAsync(
+            repositoryNameOrId, pullRequestId, threadId, normalizedStatus,
+            project, cancellationToken);
+
+        return JsonSerializer.Serialize(new
+        {
+            success = true,
+            message = $"Thread {threadId} on pull request {pullRequestId} updated to {thread.Status}",
+            thread
+        }, JsonOptions);
+    }
+
     [McpServerTool(Name = "search_pull_requests")]
     [Description("Searches pull requests by text in title or description. Useful for finding PRs related to specific features or bugs.")]
     public async Task<string> SearchPullRequests(
@@ -263,6 +309,23 @@ public sealed class PullRequestTools
             count = pullRequests.Count,
             pullRequests
         }, JsonOptions);
+    }
+
+    private static string? NormalizeThreadStatus(string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status))
+            return null;
+
+        return status.Trim().ToLowerInvariant().Replace("_", string.Empty).Replace("-", string.Empty) switch
+        {
+            "active" or "open" or "reopen" or "reopened" => "Active",
+            "fixed" or "fix" or "resolve" or "resolved" => "Fixed",
+            "wontfix" or "wont" => "WontFix",
+            "closed" or "close" => "Closed",
+            "bydesign" => "ByDesign",
+            "pending" => "Pending",
+            _ => null
+        };
     }
 
     [McpServerTool(Name = "create_pull_request")]

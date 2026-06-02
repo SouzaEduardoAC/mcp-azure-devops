@@ -1598,6 +1598,54 @@ public sealed class AzureDevOpsService : IAzureDevOpsService, IDisposable
         }
     }
 
+    public async Task<PullRequestThreadDto> UpdatePullRequestThreadStatusAsync(
+        string repositoryNameOrId,
+        int pullRequestId,
+        int threadId,
+        string status,
+        string? project = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var projectName = project ?? _options.DefaultProject;
+            var threadStatus = ParseCommentThreadStatus(status)
+                ?? throw new ArgumentException($"Unsupported pull request thread status '{status}'", nameof(status));
+
+            _logger.LogDebug(
+                "Updating thread {ThreadId} on pull request {PullRequestId} to status {Status}",
+                threadId,
+                pullRequestId,
+                threadStatus);
+
+            var thread = new GitPullRequestCommentThread
+            {
+                Status = threadStatus
+            };
+
+            var updated = await _gitClient.UpdateThreadAsync(
+                commentThread: thread,
+                project: projectName,
+                repositoryId: repositoryNameOrId,
+                pullRequestId: pullRequestId,
+                threadId: threadId,
+                userState: null,
+                cancellationToken: cancellationToken);
+
+            return MapToPullRequestThreadDto(updated);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Error updating thread {ThreadId} on pull request {PullRequestId} to status {Status}",
+                threadId,
+                pullRequestId,
+                status);
+            throw;
+        }
+    }
+
     public async Task<IReadOnlyList<PullRequestDto>> SearchPullRequestsAsync(
         string repositoryNameOrId,
         string searchText,
@@ -1753,6 +1801,23 @@ public sealed class AzureDevOpsService : IAzureDevOpsService, IDisposable
                 HasDeclined = r.HasDeclined ?? false,
                 ImageUrl = r.ImageUrl
             }).ToList()
+        };
+    }
+
+    private static CommentThreadStatus? ParseCommentThreadStatus(string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status))
+            return null;
+
+        return status.Trim().ToLowerInvariant().Replace("_", string.Empty).Replace("-", string.Empty) switch
+        {
+            "active" or "open" or "reopen" or "reopened" => CommentThreadStatus.Active,
+            "fixed" or "fix" or "resolve" or "resolved" => CommentThreadStatus.Fixed,
+            "wontfix" or "wont" => CommentThreadStatus.WontFix,
+            "closed" or "close" => CommentThreadStatus.Closed,
+            "bydesign" => CommentThreadStatus.ByDesign,
+            "pending" => CommentThreadStatus.Pending,
+            _ => null
         };
     }
 

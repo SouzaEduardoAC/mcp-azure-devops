@@ -483,6 +483,123 @@ public class PullRequestToolsTests
 
     #endregion
 
+    #region UpdatePullRequestThreadStatus Tests
+
+    [Fact]
+    public async Task UpdatePullRequestThreadStatus_ShouldUpdateStatus()
+    {
+        var thread = new PullRequestThreadDto
+        {
+            Id = 10,
+            Status = "Closed"
+        };
+
+        _mockService
+            .Setup(s => s.UpdatePullRequestThreadStatusAsync(
+                "repo",
+                123,
+                10,
+                "Closed",
+                null,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(thread);
+
+        var result = await _tools.UpdatePullRequestThreadStatus("repo", 123, 10, "close");
+
+        Assert.Contains("\"success\": true", result);
+        Assert.Contains("updated to Closed", result);
+        Assert.Contains("\"status\": \"Closed\"", result);
+        _mockService.Verify(s => s.UpdatePullRequestThreadStatusAsync(
+            "repo",
+            123,
+            10,
+            "Closed",
+            null,
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdatePullRequestThreadStatus_WithResolveAlias_ShouldSendFixed()
+    {
+        var thread = new PullRequestThreadDto
+        {
+            Id = 10,
+            Status = "Fixed"
+        };
+
+        _mockService
+            .Setup(s => s.UpdatePullRequestThreadStatusAsync(
+                "repo",
+                123,
+                10,
+                "Fixed",
+                "MyProject",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(thread);
+
+        await _tools.UpdatePullRequestThreadStatus("repo", 123, 10, "resolve", "MyProject");
+
+        _mockService.Verify(s => s.UpdatePullRequestThreadStatusAsync(
+            "repo",
+            123,
+            10,
+            "Fixed",
+            "MyProject",
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdatePullRequestThreadStatus_WithEmptyRepoName_ShouldReturnError()
+    {
+        var result = await _tools.UpdatePullRequestThreadStatus("", 123, 10, "closed");
+
+        Assert.Contains("error", result);
+        Assert.Contains("Repository name or ID is required", result);
+        _mockService.Verify(s => s.UpdatePullRequestThreadStatusAsync(
+            It.IsAny<string>(),
+            It.IsAny<int>(),
+            It.IsAny<int>(),
+            It.IsAny<string>(),
+            It.IsAny<string?>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdatePullRequestThreadStatus_WithInvalidPRId_ShouldReturnError()
+    {
+        var result = await _tools.UpdatePullRequestThreadStatus("repo", 0, 10, "closed");
+
+        Assert.Contains("error", result);
+        Assert.Contains("Pull request ID must be a positive integer", result);
+    }
+
+    [Fact]
+    public async Task UpdatePullRequestThreadStatus_WithInvalidThreadId_ShouldReturnError()
+    {
+        var result = await _tools.UpdatePullRequestThreadStatus("repo", 123, 0, "closed");
+
+        Assert.Contains("error", result);
+        Assert.Contains("Thread ID must be a positive integer", result);
+    }
+
+    [Fact]
+    public async Task UpdatePullRequestThreadStatus_WithUnsupportedStatus_ShouldReturnError()
+    {
+        var result = await _tools.UpdatePullRequestThreadStatus("repo", 123, 10, "done");
+
+        Assert.Contains("error", result);
+        Assert.Contains("Unsupported thread status", result);
+        _mockService.Verify(s => s.UpdatePullRequestThreadStatusAsync(
+            It.IsAny<string>(),
+            It.IsAny<int>(),
+            It.IsAny<int>(),
+            It.IsAny<string>(),
+            It.IsAny<string?>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    #endregion
+
     #region SearchPullRequests Tests
 
     [Fact]
