@@ -380,6 +380,24 @@ public interface IAzureDevOpsService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Updates the status of an existing comment thread on a pull request.
+    /// </summary>
+    /// <param name="repositoryNameOrId">The repository name or ID.</param>
+    /// <param name="pullRequestId">The pull request ID.</param>
+    /// <param name="threadId">The thread ID to update.</param>
+    /// <param name="status">The target thread status, such as Active, Fixed, Closed, WontFix, ByDesign, or Pending.</param>
+    /// <param name="project">The project name (optional if default project is configured).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The updated comment thread.</returns>
+    Task<PullRequestThreadDto> UpdatePullRequestThreadStatusAsync(
+        string repositoryNameOrId,
+        int pullRequestId,
+        int threadId,
+        string status,
+        string? project = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Searches pull requests by title or description.
     /// </summary>
     /// <param name="repositoryNameOrId">The repository name or ID.</param>

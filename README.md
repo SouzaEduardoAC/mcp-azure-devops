@@ -150,6 +150,7 @@ This project implements an MCP server that exposes tools for querying and managi
 | `get_pull_request_by_id` | Gets details of a pull request by ID only, searching across all repositories in the project |
 | `get_pull_request_threads` | Gets comment threads for a pull request |
 | `create_pull_request_thread` | Creates a new comment thread on a pull request, either as a general discussion or inline file comment |
+| `update_pull_request_thread_status` | Updates a pull request comment thread status, including close/resolve aliases |
 | `search_pull_requests` | Searches pull requests by text in title or description |
 | `query_pull_requests` | Advanced query with multiple combined filters |
 | `create_pull_request` | Creates a new pull request with title, description, source/target branches, draft flag, reviewers, and linked work items |
