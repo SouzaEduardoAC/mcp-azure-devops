@@ -154,6 +154,7 @@ This project implements an MCP server that exposes tools for querying and managi
 | `search_pull_requests` | Searches pull requests by text in title or description |
 | `query_pull_requests` | Advanced query with multiple combined filters |
 | `create_pull_request` | Creates a new pull request with title, description, source/target branches, draft flag, reviewers, and linked work items |
+| `update_pull_request` | Updates an existing pull request title, description, target branch, status, or draft flag |
 
 ### Pipeline/Build Tools
 
@@ -398,6 +399,8 @@ After configuring the MCP client, you can ask questions like:
 - "Create a pull request from 'feature/login' to 'main' titled 'Add login page'"
 - "Open a draft PR from my branch to main with a description of the changes"
 - "Create a PR and link it to work items #123 and #456"
+- "Update PR #456 to change the title and mark it ready for review"
+- "Abandon PR #456 in the 'my-repo' repository"
 
 ### Pipelines and Builds
 

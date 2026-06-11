@@ -1757,6 +1757,74 @@ public sealed class AzureDevOpsService : IAzureDevOpsService, IDisposable
         }
     }
 
+    public async Task<PullRequestDto> UpdatePullRequestAsync(
+        string repositoryNameOrId,
+        int pullRequestId,
+        string? title = null,
+        string? description = null,
+        string? targetRefName = null,
+        string? status = null,
+        bool? isDraft = null,
+        string? project = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var projectName = project ?? _options.DefaultProject;
+            _logger.LogDebug(
+                "Updating pull request {PullRequestId} in repository {Repository}",
+                pullRequestId,
+                repositoryNameOrId);
+
+            var pullRequestUpdate = new GitPullRequest();
+
+            if (title is not null)
+            {
+                pullRequestUpdate.Title = title;
+            }
+
+            if (description is not null)
+            {
+                pullRequestUpdate.Description = description;
+            }
+
+            if (targetRefName is not null)
+            {
+                pullRequestUpdate.TargetRefName = targetRefName;
+            }
+
+            if (status is not null)
+            {
+                pullRequestUpdate.Status = ParsePullRequestUpdateStatus(status)
+                    ?? throw new ArgumentException($"Unsupported pull request status '{status}'", nameof(status));
+            }
+
+            if (isDraft.HasValue)
+            {
+                pullRequestUpdate.IsDraft = isDraft.Value;
+            }
+
+            var result = await _gitClient.UpdatePullRequestAsync(
+                gitPullRequestToUpdate: pullRequestUpdate,
+                project: projectName,
+                repositoryId: repositoryNameOrId,
+                pullRequestId: pullRequestId,
+                userState: null,
+                cancellationToken: cancellationToken);
+
+            return MapToPullRequestDto(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Error updating pull request {PullRequestId} in repository {Repository}",
+                pullRequestId,
+                repositoryNameOrId);
+            throw;
+        }
+    }
+
     private static PullRequestStatus? ParsePullRequestStatus(string? status)
     {
         if (string.IsNullOrEmpty(status))
@@ -1768,6 +1836,20 @@ public sealed class AzureDevOpsService : IAzureDevOpsService, IDisposable
             "completed" => PullRequestStatus.Completed,
             "abandoned" => PullRequestStatus.Abandoned,
             "all" => PullRequestStatus.All,
+            _ => null
+        };
+    }
+
+    private static PullRequestStatus? ParsePullRequestUpdateStatus(string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status))
+            return null;
+
+        return status.Trim().ToLowerInvariant().Replace("_", string.Empty).Replace("-", string.Empty) switch
+        {
+            "active" or "open" or "reopen" or "reactivate" or "reactivated" => PullRequestStatus.Active,
+            "abandoned" or "abandon" => PullRequestStatus.Abandoned,
+            "completed" or "complete" or "merge" or "merged" => PullRequestStatus.Completed,
             _ => null
         };
     }

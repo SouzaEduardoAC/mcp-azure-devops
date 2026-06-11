@@ -441,6 +441,30 @@ public interface IAzureDevOpsService
         IEnumerable<int>? workItemIds = null,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Updates an existing pull request in the specified repository.
+    /// </summary>
+    /// <param name="repositoryNameOrId">The repository name or ID.</param>
+    /// <param name="pullRequestId">The pull request ID.</param>
+    /// <param name="title">Optional new pull request title.</param>
+    /// <param name="description">Optional new pull request description.</param>
+    /// <param name="targetRefName">Optional new target branch (e.g., refs/heads/main).</param>
+    /// <param name="status">Optional new status: active, abandoned, or completed.</param>
+    /// <param name="isDraft">Optional draft flag.</param>
+    /// <param name="project">The project name (optional if default project is configured).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The updated pull request.</returns>
+    Task<PullRequestDto> UpdatePullRequestAsync(
+        string repositoryNameOrId,
+        int pullRequestId,
+        string? title = null,
+        string? description = null,
+        string? targetRefName = null,
+        string? status = null,
+        bool? isDraft = null,
+        string? project = null,
+        CancellationToken cancellationToken = default);
+
     #endregion
 
     #region Pipeline/Build Operations
