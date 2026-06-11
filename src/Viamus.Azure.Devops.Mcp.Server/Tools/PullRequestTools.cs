@@ -385,6 +385,76 @@ public sealed class PullRequestTools
         }, JsonOptions);
     }
 
+    [McpServerTool(Name = "update_pull_request")]
+    [Description("Updates an existing pull request. Only specified fields are changed; omitted fields remain unchanged. Supports title, description, target branch, status, and draft flag.")]
+    public async Task<string> UpdatePullRequest(
+        [Description("The repository name or ID")] string repositoryNameOrId,
+        [Description("The pull request ID")] int pullRequestId,
+        [Description("New pull request title")] string? title = null,
+        [Description("New pull request description")] string? description = null,
+        [Description("New target branch (e.g., 'refs/heads/main')")] string? targetRefName = null,
+        [Description("New status: Active, Abandoned, or Completed. Aliases include open, reopen, abandon, complete, and merge.")] string? status = null,
+        [Description("New draft flag. Use true to mark as draft, false to mark ready for review.")] bool? isDraft = null,
+        [Description("The project name (optional if default project is configured)")] string? project = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(repositoryNameOrId))
+        {
+            return JsonSerializer.Serialize(new { error = "Repository name or ID is required" }, JsonOptions);
+        }
+
+        if (pullRequestId <= 0)
+        {
+            return JsonSerializer.Serialize(new { error = "Pull request ID must be a positive integer" }, JsonOptions);
+        }
+
+        if (title is not null && string.IsNullOrWhiteSpace(title))
+        {
+            return JsonSerializer.Serialize(new { error = "Title cannot be empty" }, JsonOptions);
+        }
+
+        if (targetRefName is not null && string.IsNullOrWhiteSpace(targetRefName))
+        {
+            return JsonSerializer.Serialize(new { error = "Target branch cannot be empty" }, JsonOptions);
+        }
+
+        var normalizedStatus = status is null ? null : NormalizePullRequestStatus(status);
+        if (status is not null && normalizedStatus is null)
+        {
+            return JsonSerializer.Serialize(new
+            {
+                error = "Unsupported pull request status. Supported statuses are Active, Abandoned, and Completed. Aliases include open, reopen, abandon, complete, and merge."
+            }, JsonOptions);
+        }
+
+        if (title is null &&
+            description is null &&
+            targetRefName is null &&
+            normalizedStatus is null &&
+            isDraft is null)
+        {
+            return JsonSerializer.Serialize(new { error = "At least one pull request field must be provided" }, JsonOptions);
+        }
+
+        var pullRequest = await _azureDevOpsService.UpdatePullRequestAsync(
+            repositoryNameOrId,
+            pullRequestId,
+            title,
+            description,
+            targetRefName,
+            normalizedStatus,
+            isDraft,
+            project,
+            cancellationToken);
+
+        return JsonSerializer.Serialize(new
+        {
+            success = true,
+            message = $"Pull request {pullRequest.PullRequestId} updated successfully",
+            pullRequest
+        }, JsonOptions);
+    }
+
     [McpServerTool(Name = "query_pull_requests")]
     [Description("Advanced query for pull requests with multiple combined filters. Allows filtering by status, branches, dates, creator, and reviewer simultaneously.")]
     public async Task<string> QueryPullRequests(
@@ -423,5 +493,19 @@ public sealed class PullRequestTools
             count = pullRequests.Count,
             pullRequests
         }, JsonOptions);
+    }
+
+    private static string? NormalizePullRequestStatus(string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status))
+            return null;
+
+        return status.Trim().ToLowerInvariant().Replace("_", string.Empty).Replace("-", string.Empty) switch
+        {
+            "active" or "open" or "reopen" or "reactivate" or "reactivated" => "Active",
+            "abandoned" or "abandon" => "Abandoned",
+            "completed" or "complete" or "merge" or "merged" => "Completed",
+            _ => null
+        };
     }
 }

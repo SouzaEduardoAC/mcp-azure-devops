@@ -812,6 +812,185 @@ public class PullRequestToolsTests
 
     #endregion
 
+    #region UpdatePullRequest Tests
+
+    [Fact]
+    public async Task UpdatePullRequest_WithTitleAndDraftFlag_ShouldReturnSuccess()
+    {
+        var pullRequest = new PullRequestDto
+        {
+            PullRequestId = 123,
+            Title = "Updated PR",
+            Status = "Active",
+            IsDraft = false
+        };
+
+        _mockService
+            .Setup(s => s.UpdatePullRequestAsync(
+                "repo",
+                123,
+                "Updated PR",
+                null,
+                null,
+                null,
+                false,
+                null,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pullRequest);
+
+        var result = await _tools.UpdatePullRequest("repo", 123, title: "Updated PR", isDraft: false);
+
+        Assert.Contains("\"success\": true", result);
+        Assert.Contains("Pull request 123 updated successfully", result);
+        Assert.Contains("\"title\": \"Updated PR\"", result);
+        _mockService.Verify(s => s.UpdatePullRequestAsync(
+            "repo",
+            123,
+            "Updated PR",
+            null,
+            null,
+            null,
+            false,
+            null,
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdatePullRequest_WithAllFields_ShouldNormalizeStatusAndPassAllToService()
+    {
+        var pullRequest = new PullRequestDto
+        {
+            PullRequestId = 124,
+            Title = "Retargeted PR",
+            Description = "Updated description",
+            TargetBranch = "refs/heads/release",
+            Status = "Abandoned",
+            IsDraft = true
+        };
+
+        _mockService
+            .Setup(s => s.UpdatePullRequestAsync(
+                "repo",
+                124,
+                "Retargeted PR",
+                "Updated description",
+                "refs/heads/release",
+                "Abandoned",
+                true,
+                "MyProject",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pullRequest);
+
+        var result = await _tools.UpdatePullRequest(
+            "repo",
+            124,
+            title: "Retargeted PR",
+            description: "Updated description",
+            targetRefName: "refs/heads/release",
+            status: "abandon",
+            isDraft: true,
+            project: "MyProject");
+
+        Assert.Contains("\"success\": true", result);
+        Assert.Contains("\"status\": \"Abandoned\"", result);
+        _mockService.Verify(s => s.UpdatePullRequestAsync(
+            "repo",
+            124,
+            "Retargeted PR",
+            "Updated description",
+            "refs/heads/release",
+            "Abandoned",
+            true,
+            "MyProject",
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdatePullRequest_WithEmptyRepoName_ShouldReturnError()
+    {
+        var result = await _tools.UpdatePullRequest("", 123, title: "Title");
+
+        Assert.Contains("error", result);
+        Assert.Contains("Repository name or ID is required", result);
+        _mockService.Verify(s => s.UpdatePullRequestAsync(
+            It.IsAny<string>(),
+            It.IsAny<int>(),
+            It.IsAny<string?>(),
+            It.IsAny<string?>(),
+            It.IsAny<string?>(),
+            It.IsAny<string?>(),
+            It.IsAny<bool?>(),
+            It.IsAny<string?>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdatePullRequest_WithInvalidPRId_ShouldReturnError()
+    {
+        var result = await _tools.UpdatePullRequest("repo", 0, title: "Title");
+
+        Assert.Contains("error", result);
+        Assert.Contains("Pull request ID must be a positive integer", result);
+    }
+
+    [Fact]
+    public async Task UpdatePullRequest_WithNoFields_ShouldReturnError()
+    {
+        var result = await _tools.UpdatePullRequest("repo", 123);
+
+        Assert.Contains("error", result);
+        Assert.Contains("At least one pull request field must be provided", result);
+        _mockService.Verify(s => s.UpdatePullRequestAsync(
+            It.IsAny<string>(),
+            It.IsAny<int>(),
+            It.IsAny<string?>(),
+            It.IsAny<string?>(),
+            It.IsAny<string?>(),
+            It.IsAny<string?>(),
+            It.IsAny<bool?>(),
+            It.IsAny<string?>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdatePullRequest_WithEmptyTitle_ShouldReturnError()
+    {
+        var result = await _tools.UpdatePullRequest("repo", 123, title: "");
+
+        Assert.Contains("error", result);
+        Assert.Contains("Title cannot be empty", result);
+    }
+
+    [Fact]
+    public async Task UpdatePullRequest_WithEmptyTargetRef_ShouldReturnError()
+    {
+        var result = await _tools.UpdatePullRequest("repo", 123, targetRefName: "");
+
+        Assert.Contains("error", result);
+        Assert.Contains("Target branch cannot be empty", result);
+    }
+
+    [Fact]
+    public async Task UpdatePullRequest_WithUnsupportedStatus_ShouldReturnError()
+    {
+        var result = await _tools.UpdatePullRequest("repo", 123, status: "all");
+
+        Assert.Contains("error", result);
+        Assert.Contains("Unsupported pull request status", result);
+        _mockService.Verify(s => s.UpdatePullRequestAsync(
+            It.IsAny<string>(),
+            It.IsAny<int>(),
+            It.IsAny<string?>(),
+            It.IsAny<string?>(),
+            It.IsAny<string?>(),
+            It.IsAny<string?>(),
+            It.IsAny<bool?>(),
+            It.IsAny<string?>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    #endregion
+
     #region QueryPullRequests Tests
 
     [Fact]
