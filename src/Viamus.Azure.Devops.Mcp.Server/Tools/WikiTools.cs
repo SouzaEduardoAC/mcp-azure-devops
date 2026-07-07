@@ -12,6 +12,7 @@ namespace Viamus.Azure.Devops.Mcp.Server.Tools;
 public sealed class WikiTools
 {
     private readonly IAzureDevOpsService _azureDevOpsService;
+    private readonly IAzureDevOpsOrganizationContextAccessor _organizationContextAccessor;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -19,16 +20,26 @@ public sealed class WikiTools
     };
 
     public WikiTools(IAzureDevOpsService azureDevOpsService)
+        : this(azureDevOpsService, new AzureDevOpsOrganizationContextAccessor())
+    {
+    }
+
+    public WikiTools(
+        IAzureDevOpsService azureDevOpsService,
+        IAzureDevOpsOrganizationContextAccessor organizationContextAccessor)
     {
         _azureDevOpsService = azureDevOpsService;
+        _organizationContextAccessor = organizationContextAccessor;
     }
 
     [McpServerTool(Name = "get_wikis")]
     [Description("Gets all wikis in an Azure DevOps project. Returns wiki details including name, type (projectWiki or codeWiki), repository, and versions.")]
     public async Task<string> GetWikis(
         [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         var wikis = await _azureDevOpsService.GetWikisAsync(project, cancellationToken);
         return JsonSerializer.Serialize(new { count = wikis.Count, wikis }, JsonOptions);
     }
@@ -38,8 +49,10 @@ public sealed class WikiTools
     public async Task<string> GetWiki(
         [Description("The wiki name or ID")] string wikiIdentifier,
         [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (string.IsNullOrWhiteSpace(wikiIdentifier))
         {
             return JsonSerializer.Serialize(new { error = "Wiki name or ID is required" }, JsonOptions);
@@ -63,8 +76,10 @@ public sealed class WikiTools
         [Description("Whether to include the page Markdown content (default true)")] bool includeContent = true,
         [Description("Optional version/branch of the wiki")] string? version = null,
         [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (string.IsNullOrWhiteSpace(wikiIdentifier))
         {
             return JsonSerializer.Serialize(new { error = "Wiki name or ID is required" }, JsonOptions);
@@ -96,8 +111,10 @@ public sealed class WikiTools
         [Description("The parent page path to browse (default is root '/')")] string path = "/",
         [Description("Recursion level: 'OneLevel' (immediate children) or 'Full' (all descendants). Default is 'OneLevel'.")] string recursionLevel = "OneLevel",
         [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (string.IsNullOrWhiteSpace(wikiIdentifier))
         {
             return JsonSerializer.Serialize(new { error = "Wiki name or ID is required" }, JsonOptions);

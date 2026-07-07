@@ -12,6 +12,15 @@ services:
       - AzureDevOps__OrganizationUrl=${AZURE_DEVOPS_ORG_URL}
       - AzureDevOps__PersonalAccessToken=${AZURE_DEVOPS_PAT}
       - AzureDevOps__DefaultProject=${AZURE_DEVOPS_DEFAULT_PROJECT:-}
+      - AzureDevOps__DefaultOrganization=${AZURE_DEVOPS_DEFAULT_ORGANIZATION:-}
+      - AzureDevOps__Organizations__0__Name=${AZURE_DEVOPS_ORGANIZATION_0_NAME:-}
+      - AzureDevOps__Organizations__0__OrganizationUrl=${AZURE_DEVOPS_ORGANIZATION_0_URL:-}
+      - AzureDevOps__Organizations__0__PersonalAccessToken=${AZURE_DEVOPS_ORGANIZATION_0_PAT:-}
+      - AzureDevOps__Organizations__0__DefaultProject=${AZURE_DEVOPS_ORGANIZATION_0_DEFAULT_PROJECT:-}
+      - AzureDevOps__Organizations__1__Name=${AZURE_DEVOPS_ORGANIZATION_1_NAME:-}
+      - AzureDevOps__Organizations__1__OrganizationUrl=${AZURE_DEVOPS_ORGANIZATION_1_URL:-}
+      - AzureDevOps__Organizations__1__PersonalAccessToken=${AZURE_DEVOPS_ORGANIZATION_1_PAT:-}
+      - AzureDevOps__Organizations__1__DefaultProject=${AZURE_DEVOPS_ORGANIZATION_1_DEFAULT_PROJECT:-}
       - ServerSecurity__ApiKey=${MCP_API_KEY:-}
       - ServerSecurity__RequireApiKey=${MCP_REQUIRE_API_KEY:-false}
     restart: unless-stopped
