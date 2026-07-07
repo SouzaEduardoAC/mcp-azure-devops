@@ -12,6 +12,7 @@ namespace Viamus.Azure.Devops.Mcp.Server.Tools;
 public sealed class GitTools
 {
     private readonly IAzureDevOpsService _azureDevOpsService;
+    private readonly IAzureDevOpsOrganizationContextAccessor _organizationContextAccessor;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -19,16 +20,26 @@ public sealed class GitTools
     };
 
     public GitTools(IAzureDevOpsService azureDevOpsService)
+        : this(azureDevOpsService, new AzureDevOpsOrganizationContextAccessor())
+    {
+    }
+
+    public GitTools(
+        IAzureDevOpsService azureDevOpsService,
+        IAzureDevOpsOrganizationContextAccessor organizationContextAccessor)
     {
         _azureDevOpsService = azureDevOpsService;
+        _organizationContextAccessor = organizationContextAccessor;
     }
 
     [McpServerTool(Name = "get_repositories")]
     [Description("Gets all Git repositories in an Azure DevOps project. Returns repository details including name, default branch, URLs, and size.")]
     public async Task<string> GetRepositories(
         [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         var repositories = await _azureDevOpsService.GetRepositoriesAsync(project, cancellationToken);
         return JsonSerializer.Serialize(new { count = repositories.Count, repositories }, JsonOptions);
     }
@@ -38,8 +49,10 @@ public sealed class GitTools
     public async Task<string> GetRepository(
         [Description("The repository name or ID")] string repositoryNameOrId,
         [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (string.IsNullOrWhiteSpace(repositoryNameOrId))
         {
             return JsonSerializer.Serialize(new { error = "Repository name or ID is required" }, JsonOptions);
@@ -60,8 +73,10 @@ public sealed class GitTools
     public async Task<string> GetBranches(
         [Description("The repository name or ID")] string repositoryNameOrId,
         [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (string.IsNullOrWhiteSpace(repositoryNameOrId))
         {
             return JsonSerializer.Serialize(new { error = "Repository name or ID is required" }, JsonOptions);
@@ -79,8 +94,10 @@ public sealed class GitTools
         [Description("The branch name (optional, uses default branch if not specified)")] string? branchName = null,
         [Description("The project name (optional if default project is configured)")] string? project = null,
         [Description("Recursion level: 'None' (only specified item), 'OneLevel' (immediate children), 'Full' (all descendants). Default is 'OneLevel'.")] string recursionLevel = "OneLevel",
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (string.IsNullOrWhiteSpace(repositoryNameOrId))
         {
             return JsonSerializer.Serialize(new { error = "Repository name or ID is required" }, JsonOptions);
@@ -106,8 +123,10 @@ public sealed class GitTools
         [Description("The path to the file (e.g., '/src/Program.cs')")] string filePath,
         [Description("The branch name (optional, uses default branch if not specified)")] string? branchName = null,
         [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (string.IsNullOrWhiteSpace(repositoryNameOrId))
         {
             return JsonSerializer.Serialize(new { error = "Repository name or ID is required" }, JsonOptions);
@@ -141,8 +160,10 @@ public sealed class GitTools
         [Description("The starting path to search from (default is root '/')")] string path = "/",
         [Description("The branch name (optional, uses default branch if not specified)")] string? branchName = null,
         [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (string.IsNullOrWhiteSpace(repositoryNameOrId))
         {
             return JsonSerializer.Serialize(new { error = "Repository name or ID is required" }, JsonOptions);

@@ -12,6 +12,7 @@ namespace Viamus.Azure.Devops.Mcp.Server.Tools;
 public sealed class WorkItemTools
 {
     private readonly IAzureDevOpsService _azureDevOpsService;
+    private readonly IAzureDevOpsOrganizationContextAccessor _organizationContextAccessor;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -19,8 +20,16 @@ public sealed class WorkItemTools
     };
 
     public WorkItemTools(IAzureDevOpsService azureDevOpsService)
+        : this(azureDevOpsService, new AzureDevOpsOrganizationContextAccessor())
+    {
+    }
+
+    public WorkItemTools(
+        IAzureDevOpsService azureDevOpsService,
+        IAzureDevOpsOrganizationContextAccessor organizationContextAccessor)
     {
         _azureDevOpsService = azureDevOpsService;
+        _organizationContextAccessor = organizationContextAccessor;
     }
 
     [McpServerTool(Name = "get_work_item")]
@@ -28,8 +37,10 @@ public sealed class WorkItemTools
     public async Task<string> GetWorkItem(
         [Description("The ID of the work item to retrieve")] int workItemId,
         [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         var workItem = await _azureDevOpsService.GetWorkItemAsync(workItemId, project, cancellationToken);
 
         if (workItem is null)
@@ -45,8 +56,10 @@ public sealed class WorkItemTools
     public async Task<string> GetWorkItems(
         [Description("Comma-separated list of work item IDs to retrieve (e.g., '123,456,789')")] string workItemIds,
         [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         var ids = ParseWorkItemIds(workItemIds);
 
         if (ids.Count == 0)
@@ -65,8 +78,10 @@ public sealed class WorkItemTools
         [Description("The project name (optional)")] string? project = null,
         [Description("Page number, starting from 1 (default: 1)")] int page = 1,
         [Description("Number of items per page (default: 20, max: 20)")] int pageSize = 20,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         var result = await _azureDevOpsService.QueryWorkItemsSummaryAsync(wiqlQuery, project, page, pageSize, cancellationToken);
         return JsonSerializer.Serialize(new
         {
@@ -88,8 +103,10 @@ public sealed class WorkItemTools
         [Description("Optional work item type filter (e.g., 'Bug', 'Task', 'User Story')")] string? workItemType = null,
         [Description("Page number, starting from 1 (default: 1)")] int page = 1,
         [Description("Number of items per page (default: 20, max: 20)")] int pageSize = 20,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         var typeFilter = string.IsNullOrWhiteSpace(workItemType)
             ? string.Empty
             : $" AND [System.WorkItemType] = '{EscapeWiqlString(workItemType)}'";
@@ -124,8 +141,10 @@ public sealed class WorkItemTools
         [Description("Filter by state (optional, e.g., 'Active')")] string? state = null,
         [Description("Page number, starting from 1 (default: 1)")] int page = 1,
         [Description("Number of items per page (default: 20, max: 20)")] int pageSize = 20,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         var stateFilter = string.IsNullOrWhiteSpace(state)
             ? string.Empty
             : $" AND [System.State] = '{EscapeWiqlString(state)}'";
@@ -156,8 +175,10 @@ public sealed class WorkItemTools
     public async Task<string> GetChildWorkItems(
         [Description("The ID of the parent work item")] int parentWorkItemId,
         [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         var workItems = await _azureDevOpsService.GetChildWorkItemsAsync(parentWorkItemId, project, cancellationToken);
         return JsonSerializer.Serialize(new { parentWorkItemId, count = workItems.Count, children = workItems }, JsonOptions);
     }
@@ -170,8 +191,10 @@ public sealed class WorkItemTools
         [Description("Relation from the source work item's perspective: parent, child, predecessor, successor, related, or a System.LinkTypes.* reference name")] string relationType,
         [Description("The project name (optional if default project is configured)")] string? project = null,
         [Description("Optional comment to store on the relation")] string? comment = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (sourceWorkItemId <= 0)
         {
             return JsonSerializer.Serialize(new { error = "sourceWorkItemId must be a positive integer" }, JsonOptions);
@@ -232,8 +255,10 @@ public sealed class WorkItemTools
         [Description("Number of days to look back (default: 7, max: 30)")] int daysBack = 7,
         [Description("Page number, starting from 1 (default: 1)")] int page = 1,
         [Description("Number of items per page (default: 20, max: 20)")] int pageSize = 20,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         daysBack = Math.Clamp(daysBack, 1, 30);
 
         var sinceDate = DateTime.UtcNow.AddDays(-daysBack).ToString("yyyy-MM-dd");
@@ -268,8 +293,10 @@ public sealed class WorkItemTools
         [Description("Optional work item type filter (e.g., 'Bug', 'Task', 'User Story')")] string? workItemType = null,
         [Description("Page number, starting from 1 (default: 1)")] int page = 1,
         [Description("Number of items per page (default: 20, max: 20)")] int pageSize = 20,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         var typeFilter = string.IsNullOrWhiteSpace(workItemType)
             ? string.Empty
             : $" AND [System.WorkItemType] = '{EscapeWiqlString(workItemType)}'";
@@ -301,8 +328,10 @@ public sealed class WorkItemTools
     public async Task<string> GetWorkItemAttachments(
         [Description("The ID of the work item")] int workItemId,
         [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (workItemId <= 0)
         {
             return JsonSerializer.Serialize(new { error = "Work item ID must be a positive integer" }, JsonOptions);
@@ -319,14 +348,16 @@ public sealed class WorkItemTools
     }
 
     [McpServerTool(Name = "get_work_item_attachment_content")]
-    [Description("Downloads the content of a work item attachment by its GUID (use get_work_item_attachments to discover GUIDs) and returns it inline. Text files come back as UTF-8; binary files as base64-encoded bytes. Refuses files larger than maxBytes (default 10 MB) — for those, use the URL from get_work_item_attachments and download out-of-band.")]
+    [Description("Downloads the content of a work item attachment by its GUID (use get_work_item_attachments to discover GUIDs) and returns it inline. Text files come back as UTF-8; binary files as base64-encoded bytes. Refuses files larger than maxBytes (default 10 MB) â€” for those, use the URL from get_work_item_attachments and download out-of-band.")]
     public async Task<string> GetWorkItemAttachmentContent(
         [Description("The attachment GUID (e.g., '2ee06d3b-4ea4-4390-80de-474a4e1e4355')")] string attachmentId,
         [Description("Optional original filename (echoed back in the response)")] string? fileName = null,
         [Description("The project name (optional if default project is configured)")] string? project = null,
         [Description("Maximum bytes to download (default 10485760 = 10 MB). Larger attachments are rejected.")] int maxBytes = 10 * 1024 * 1024,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (!Guid.TryParse(attachmentId, out var guid))
         {
             return JsonSerializer.Serialize(new { error = "attachmentId must be a valid GUID" }, JsonOptions);
@@ -354,8 +385,10 @@ public sealed class WorkItemTools
         [Description("The ID of the work item to comment on")] int workItemId,
         [Description("The comment text to add")] string comment,
         [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (string.IsNullOrWhiteSpace(comment))
         {
             return JsonSerializer.Serialize(new { error = "Comment text cannot be empty" }, JsonOptions);
@@ -380,8 +413,10 @@ public sealed class WorkItemTools
         [Description("Whether to include deleted comments (default: false)")] bool includeDeleted = false,
         [Description("Sort order: 'asc' (oldest first) or 'desc' (newest first). Defaults to server order.")] string? order = null,
         [Description("If true, includes the rendered HTML of each comment in addition to its Markdown text (default: false)")] bool includeRenderedText = false,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (workItemId <= 0)
         {
             return JsonSerializer.Serialize(new { error = "workItemId must be a positive integer" }, JsonOptions);
@@ -429,8 +464,10 @@ public sealed class WorkItemTools
         [Description("The ID of the parent work item to link to")] int? parentId = null,
         [Description("Semicolon-separated tags (e.g., 'tag1; tag2; tag3')")] string? tags = null,
         [Description("JSON string of additional fields as key-value pairs (e.g., '{\"Custom.Field\": \"value\"}')")] string? additionalFields = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (string.IsNullOrWhiteSpace(project))
         {
             return JsonSerializer.Serialize(new { error = "Project name is required" }, JsonOptions);
@@ -488,8 +525,10 @@ public sealed class WorkItemTools
         [Description("New priority (1-4, where 1 is highest)")] int? priority = null,
         [Description("New semicolon-separated tags (e.g., 'tag1; tag2; tag3')")] string? tags = null,
         [Description("JSON string of additional fields as key-value pairs (e.g., '{\"Custom.Field\": \"value\"}')")] string? additionalFields = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (workItemId <= 0)
         {
             return JsonSerializer.Serialize(new { error = "Work item ID must be a positive integer" }, JsonOptions);

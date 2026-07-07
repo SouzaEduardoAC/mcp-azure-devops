@@ -12,6 +12,7 @@ namespace Viamus.Azure.Devops.Mcp.Server.Tools;
 public sealed class PipelineTools
 {
     private readonly IAzureDevOpsService _azureDevOpsService;
+    private readonly IAzureDevOpsOrganizationContextAccessor _organizationContextAccessor;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -19,8 +20,16 @@ public sealed class PipelineTools
     };
 
     public PipelineTools(IAzureDevOpsService azureDevOpsService)
+        : this(azureDevOpsService, new AzureDevOpsOrganizationContextAccessor())
+    {
+    }
+
+    public PipelineTools(
+        IAzureDevOpsService azureDevOpsService,
+        IAzureDevOpsOrganizationContextAccessor organizationContextAccessor)
     {
         _azureDevOpsService = azureDevOpsService;
+        _organizationContextAccessor = organizationContextAccessor;
     }
 
     [McpServerTool(Name = "get_pipelines")]
@@ -30,8 +39,10 @@ public sealed class PipelineTools
         [Description("Optional filter by pipeline name (supports wildcards like 'MyPipeline*')")] string? name = null,
         [Description("Optional filter by folder path (e.g., '\\folder\\subfolder')")] string? folder = null,
         [Description("Maximum number of results to return (default: 100)")] int top = 100,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         var pipelines = await _azureDevOpsService.GetPipelinesAsync(project, name, folder, top, cancellationToken);
 
         return JsonSerializer.Serialize(new
@@ -46,8 +57,10 @@ public sealed class PipelineTools
     public async Task<string> GetPipeline(
         [Description("The pipeline (build definition) ID")] int pipelineId,
         [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (pipelineId <= 0)
         {
             return JsonSerializer.Serialize(new { error = "Pipeline ID must be a positive integer" }, JsonOptions);
@@ -72,8 +85,10 @@ public sealed class PipelineTools
         [Description("Filter by status: 'all', 'inProgress', 'completed', 'cancelling', 'postponed', 'notStarted', 'none'")] string? statusFilter = null,
         [Description("Filter by result: 'succeeded', 'partiallySucceeded', 'failed', 'canceled', 'none'")] string? resultFilter = null,
         [Description("Maximum number of results to return (default: 20)")] int top = 20,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (pipelineId <= 0)
         {
             return JsonSerializer.Serialize(new { error = "Pipeline ID must be a positive integer" }, JsonOptions);
@@ -95,8 +110,10 @@ public sealed class PipelineTools
     public async Task<string> GetBuild(
         [Description("The build ID")] int buildId,
         [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (buildId <= 0)
         {
             return JsonSerializer.Serialize(new { error = "Build ID must be a positive integer" }, JsonOptions);
@@ -122,8 +139,10 @@ public sealed class PipelineTools
         [Description("Filter by result: 'succeeded', 'partiallySucceeded', 'failed', 'canceled', 'none'")] string? resultFilter = null,
         [Description("Filter by who requested the build")] string? requestedFor = null,
         [Description("Maximum number of results to return (default: 50)")] int top = 50,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         IEnumerable<int>? definitionIds = null;
         if (!string.IsNullOrWhiteSpace(definitions))
         {
@@ -164,8 +183,10 @@ public sealed class PipelineTools
     public async Task<string> GetBuildLogs(
         [Description("The build ID")] int buildId,
         [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (buildId <= 0)
         {
             return JsonSerializer.Serialize(new { error = "Build ID must be a positive integer" }, JsonOptions);
@@ -187,8 +208,10 @@ public sealed class PipelineTools
         [Description("The build ID")] int buildId,
         [Description("The log ID (from get_build_logs)")] int logId,
         [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (buildId <= 0)
         {
             return JsonSerializer.Serialize(new { error = "Build ID must be a positive integer" }, JsonOptions);
@@ -219,8 +242,10 @@ public sealed class PipelineTools
     public async Task<string> GetBuildTimeline(
         [Description("The build ID")] int buildId,
         [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (buildId <= 0)
         {
             return JsonSerializer.Serialize(new { error = "Build ID must be a positive integer" }, JsonOptions);
@@ -257,8 +282,10 @@ public sealed class PipelineTools
         [Description("Filter by result: 'succeeded', 'partiallySucceeded', 'failed', 'canceled', 'none'")] string? resultFilter = null,
         [Description("Filter by who requested the build")] string? requestedFor = null,
         [Description("Maximum number of results to return (default: 50)")] int top = 50,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         IEnumerable<int>? definitionIds = null;
         if (!string.IsNullOrWhiteSpace(definitions))
         {

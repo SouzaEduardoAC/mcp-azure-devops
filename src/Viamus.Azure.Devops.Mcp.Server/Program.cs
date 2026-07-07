@@ -15,16 +15,15 @@ builder.Services.Configure<ServerSecurityOptions>(
 
 // Validate configuration on startup
 var azureDevOpsConfig = builder.Configuration.GetSection(AzureDevOpsOptions.SectionName).Get<AzureDevOpsOptions>();
-if (string.IsNullOrWhiteSpace(azureDevOpsConfig?.OrganizationUrl))
+var azureDevOpsValidationErrors = azureDevOpsConfig?.Validate() ?? ["AzureDevOps configuration is required."];
+if (azureDevOpsValidationErrors.Count > 0)
 {
-    throw new InvalidOperationException("AzureDevOps:OrganizationUrl configuration is required.");
-}
-if (string.IsNullOrWhiteSpace(azureDevOpsConfig?.PersonalAccessToken))
-{
-    throw new InvalidOperationException("AzureDevOps:PersonalAccessToken configuration is required.");
+    throw new InvalidOperationException(
+        "AzureDevOps configuration is invalid: " + string.Join(" ", azureDevOpsValidationErrors));
 }
 
 // Register services
+builder.Services.AddSingleton<IAzureDevOpsOrganizationContextAccessor, AzureDevOpsOrganizationContextAccessor>();
 builder.Services.AddSingleton<IAzureDevOpsService, AzureDevOpsService>();
 
 // Configure MCP Server

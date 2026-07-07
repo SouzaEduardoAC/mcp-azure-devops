@@ -12,6 +12,7 @@ namespace Viamus.Azure.Devops.Mcp.Server.Tools;
 public sealed class PullRequestTools
 {
     private readonly IAzureDevOpsService _azureDevOpsService;
+    private readonly IAzureDevOpsOrganizationContextAccessor _organizationContextAccessor;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -19,8 +20,16 @@ public sealed class PullRequestTools
     };
 
     public PullRequestTools(IAzureDevOpsService azureDevOpsService)
+        : this(azureDevOpsService, new AzureDevOpsOrganizationContextAccessor())
+    {
+    }
+
+    public PullRequestTools(
+        IAzureDevOpsService azureDevOpsService,
+        IAzureDevOpsOrganizationContextAccessor organizationContextAccessor)
     {
         _azureDevOpsService = azureDevOpsService;
+        _organizationContextAccessor = organizationContextAccessor;
     }
 
     [McpServerTool(Name = "get_pull_requests")]
@@ -35,8 +44,10 @@ public sealed class PullRequestTools
         [Description("Filter by target branch (e.g., 'refs/heads/main')")] string? targetRefName = null,
         [Description("Maximum number of results to return (default: 50)")] int top = 50,
         [Description("Number of results to skip for pagination (default: 0)")] int skip = 0,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (string.IsNullOrWhiteSpace(repositoryNameOrId))
         {
             return JsonSerializer.Serialize(new { error = "Repository name or ID is required" }, JsonOptions);
@@ -60,8 +71,10 @@ public sealed class PullRequestTools
         [Description("The repository name or ID")] string repositoryNameOrId,
         [Description("The pull request ID")] int pullRequestId,
         [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (string.IsNullOrWhiteSpace(repositoryNameOrId))
         {
             return JsonSerializer.Serialize(new { error = "Repository name or ID is required" }, JsonOptions);
@@ -88,8 +101,10 @@ public sealed class PullRequestTools
     public async Task<string> GetPullRequestById(
         [Description("The pull request ID")] int pullRequestId,
         [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (pullRequestId <= 0)
         {
             return JsonSerializer.Serialize(new { error = "Pull request ID must be a positive integer" }, JsonOptions);
@@ -112,8 +127,10 @@ public sealed class PullRequestTools
         [Description("The repository name or ID")] string repositoryNameOrId,
         [Description("The pull request ID")] int pullRequestId,
         [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (string.IsNullOrWhiteSpace(repositoryNameOrId))
         {
             return JsonSerializer.Serialize(new { error = "Repository name or ID is required" }, JsonOptions);
@@ -146,8 +163,10 @@ public sealed class PullRequestTools
         [Description("Optional line number for an inline thread on the right/new file")] int? lineNumber = null,
         [Description("Optional ending line number for an inline thread range on the right/new file")] int? endLineNumber = null,
         [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (string.IsNullOrWhiteSpace(repositoryNameOrId))
         {
             return JsonSerializer.Serialize(new { error = "Repository name or ID is required" }, JsonOptions);
@@ -199,8 +218,10 @@ public sealed class PullRequestTools
         [Description("The comment text (Markdown supported)")] string content,
         [Description("Optional parent comment ID when replying to a specific comment in the thread")] int? parentCommentId = null,
         [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (string.IsNullOrWhiteSpace(repositoryNameOrId))
         {
             return JsonSerializer.Serialize(new { error = "Repository name or ID is required" }, JsonOptions);
@@ -241,8 +262,10 @@ public sealed class PullRequestTools
         [Description("The thread ID (from get_pull_request_threads)")] int threadId,
         [Description("Target status: Active, Fixed, Closed, WontFix, ByDesign, Pending, or aliases like close/resolve")] string status,
         [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (string.IsNullOrWhiteSpace(repositoryNameOrId))
         {
             return JsonSerializer.Serialize(new { error = "Repository name or ID is required" }, JsonOptions);
@@ -287,8 +310,10 @@ public sealed class PullRequestTools
         [Description("The project name (optional if default project is configured)")] string? project = null,
         [Description("Filter by status: 'active', 'completed', 'abandoned', or 'all' (default: all)")] string? status = null,
         [Description("Maximum number of results to return (default: 50)")] int top = 50,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (string.IsNullOrWhiteSpace(repositoryNameOrId))
         {
             return JsonSerializer.Serialize(new { error = "Repository name or ID is required" }, JsonOptions);
@@ -340,8 +365,10 @@ public sealed class PullRequestTools
         [Description("The project name (optional if default project is configured)")] string? project = null,
         [Description("Semicolon-separated reviewer GUIDs (e.g., 'guid1;guid2')")] string? reviewerIds = null,
         [Description("Semicolon-separated work item IDs to link (e.g., '123;456')")] string? workItemIds = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (string.IsNullOrWhiteSpace(repositoryNameOrId))
         {
             return JsonSerializer.Serialize(new { error = "Repository name or ID is required" }, JsonOptions);
@@ -396,8 +423,10 @@ public sealed class PullRequestTools
         [Description("New status: Active, Abandoned, or Completed. Aliases include open, reopen, abandon, complete, and merge.")] string? status = null,
         [Description("New draft flag. Use true to mark as draft, false to mark ready for review.")] bool? isDraft = null,
         [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (string.IsNullOrWhiteSpace(repositoryNameOrId))
         {
             return JsonSerializer.Serialize(new { error = "Repository name or ID is required" }, JsonOptions);
@@ -467,8 +496,10 @@ public sealed class PullRequestTools
         [Description("Filter by target branch (e.g., 'refs/heads/main')")] string? targetRefName = null,
         [Description("Maximum number of results to return (default: 50)")] int top = 50,
         [Description("Number of results to skip for pagination (default: 0)")] int skip = 0,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
         CancellationToken cancellationToken = default)
     {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
         if (string.IsNullOrWhiteSpace(repositoryNameOrId))
         {
             return JsonSerializer.Serialize(new { error = "Repository name or ID is required" }, JsonOptions);

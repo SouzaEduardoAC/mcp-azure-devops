@@ -43,6 +43,30 @@ Edit `src/Viamus.Azure.Devops.Mcp.Server/appsettings.json` with your Azure DevOp
 }
 ```
 
+For multiple Azure DevOps organizations or PATs, keep one entry per organization and select it in tool calls with the optional `organization` argument:
+
+```json
+{
+  "AzureDevOps": {
+    "DefaultOrganization": "primary",
+    "Organizations": [
+      {
+        "Name": "primary",
+        "OrganizationUrl": "https://dev.azure.com/primary-org",
+        "PersonalAccessToken": "primary-pat",
+        "DefaultProject": "primary-project"
+      },
+      {
+        "Name": "secondary",
+        "OrganizationUrl": "https://dev.azure.com/secondary-org",
+        "PersonalAccessToken": "secondary-pat",
+        "DefaultProject": "secondary-project"
+      }
+    ]
+  }
+}
+```
+
 > **Need a PAT?** See [Creating a Personal Access Token](#creating-a-personal-access-token-pat) below.
 
 ### 2. Run the server
@@ -95,6 +119,8 @@ The script will automatically:
 - Clone the repository
 - Configure your Azure DevOps credentials
 - Register the MCP server with Claude Code (HTTPS transport)
+
+For multiple organizations/PATs, run the installer for the primary organization, then add `AzureDevOps:Organizations` entries to `appsettings.json` or use the Docker environment variables from `.env.example`.
 
 After installation, start the server:
 ```powershell
@@ -198,6 +224,16 @@ This project implements an MCP server that exposes tools for querying and managi
 
 5. Click **Create** and **copy the token immediately** (you won't see it again!)
 
+### Multiple Organizations / PATs
+
+The server supports one PAT per configured Azure DevOps organization. Existing single-organization settings still work:
+
+- `AzureDevOps:OrganizationUrl`
+- `AzureDevOps:PersonalAccessToken`
+- `AzureDevOps:DefaultProject`
+
+For multiple PATs, configure `AzureDevOps:Organizations` with `Name`, `OrganizationUrl`, `PersonalAccessToken`, and optional `DefaultProject`. Set `AzureDevOps:DefaultOrganization` to choose the fallback organization. Tool calls can pass `organization` as the configured `Name`, the full organization URL, or the organization slug from `https://dev.azure.com/{slug}`.
+
 ---
 
 ## Running Options
@@ -211,6 +247,8 @@ Best for: Production use, quick setup without .NET installed
    cp .env.example .env
    # Edit .env with your Azure DevOps credentials
    ```
+
+   For multiple organizations/PATs, fill `AZURE_DEVOPS_ORGANIZATION_0_*`, `AZURE_DEVOPS_ORGANIZATION_1_*`, and `AZURE_DEVOPS_DEFAULT_ORGANIZATION` in `.env`.
 
 2. Start the server:
    ```bash
@@ -447,6 +485,7 @@ After configuring the MCP client, you can ask questions like:
 2. Check PAT hasn't expired in Azure DevOps
 3. Ensure PAT has required scopes (Work Items, Code, Build)
 4. Verify the organization URL is correct (no trailing slash)
+5. If using multiple organizations, verify the tool call's `organization` value matches a configured `Name`, URL, or Azure DevOps organization slug
 </details>
 
 <details>
@@ -473,7 +512,7 @@ curl -H "X-API-Key: your-key" http://localhost:5000
 
 1. Verify `AZURE_DEVOPS_DEFAULT_PROJECT` matches exact project name
 2. Or pass the project name explicitly in your queries
-3. Check PAT has access to the project
+3. Check the selected organization's PAT has access to the project
 </details>
 
 <details>

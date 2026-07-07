@@ -25,6 +25,9 @@
 .PARAMETER DefaultProject
     Your default Azure DevOps project name (optional)
 
+.PARAMETER DefaultOrganization
+    Your default Azure DevOps organization alias when multiple organizations are configured (optional)
+
 .PARAMETER ApiKey
     API key for MCP server authentication (optional). If provided, RequireApiKey is automatically enabled.
 
@@ -48,6 +51,8 @@ param(
     [string]$PersonalAccessToken,
 
     [string]$DefaultProject = "",
+
+    [string]$DefaultOrganization = "",
 
     [string]$ApiKey = "",
 
@@ -218,6 +223,8 @@ $appSettings = @{
         OrganizationUrl = $OrganizationUrl
         PersonalAccessToken = $PersonalAccessToken
         DefaultProject = $DefaultProject
+        DefaultOrganization = $DefaultOrganization
+        Organizations = @()
     }
     ServerSecurity = @{
         ApiKey = $ApiKey
