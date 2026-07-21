@@ -205,6 +205,31 @@ public interface IAzureDevOpsService
         string? project = null,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Gets the state and column transition activity history for a specific work item.
+    /// </summary>
+    /// <param name="workItemId">The work item ID.</param>
+    /// <param name="project">The project name (optional if default project is configured).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Activity history containing state/column transitions, author, and timestamps.</returns>
+    Task<WorkItemHistoryResultDto?> GetWorkItemHistoryAsync(
+        int workItemId,
+        string? project = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the state and column transition activity history for a batch of work items.
+    /// Uses concurrent requests throttled via SemaphoreSlim to optimize throughput.
+    /// </summary>
+    /// <param name="workItemIds">List of work item IDs.</param>
+    /// <param name="project">The project name (optional if default project is configured).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>List of activity histories for the requested work items.</returns>
+    Task<IReadOnlyList<WorkItemHistoryResultDto>> GetWorkItemsHistoryAsync(
+        IEnumerable<int> workItemIds,
+        string? project = null,
+        CancellationToken cancellationToken = default);
+
     #region Git Operations
 
     /// <summary>

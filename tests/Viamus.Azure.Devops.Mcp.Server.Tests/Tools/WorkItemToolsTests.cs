@@ -1077,4 +1077,92 @@ public class WorkItemToolsTests
     }
 
     #endregion
+
+    #region GetWorkItemHistory & GetWorkItemsHistory Tests
+
+    [Fact]
+    public async Task GetWorkItemHistory_WithValidId_ShouldReturnSerializedHistory()
+    {
+        var historyResult = new WorkItemHistoryResultDto
+        {
+            WorkItemId = 123,
+            TotalTransitions = 1,
+            Transitions = new List<WorkItemStateTransitionDto>
+            {
+                new()
+                {
+                    Revision = 2,
+                    State = "Active",
+                    PreviousState = "New",
+                    MovedBy = "Alice",
+                    Timestamp = DateTime.UtcNow,
+                    DurationInHours = 12.5
+                }
+            }
+        };
+
+        _mockService
+            .Setup(s => s.GetWorkItemHistoryAsync(123, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(historyResult);
+
+        var result = await _tools.GetWorkItemHistory(123);
+
+        Assert.Contains("\"workItemId\": 123", result);
+        Assert.Contains("\"totalTransitions\": 1", result);
+        Assert.Contains("\"state\": \"Active\"", result);
+        Assert.Contains("\"movedBy\": \"Alice\"", result);
+    }
+
+    [Fact]
+    public async Task GetWorkItemHistory_WithInvalidId_ShouldReturnError()
+    {
+        var result = await _tools.GetWorkItemHistory(0);
+
+        Assert.Contains("error", result);
+        Assert.Contains("Work item ID must be a positive integer", result);
+    }
+
+    [Fact]
+    public async Task GetWorkItemHistory_WhenNotFound_ShouldReturnError()
+    {
+        _mockService
+            .Setup(s => s.GetWorkItemHistoryAsync(999, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((WorkItemHistoryResultDto?)null);
+
+        var result = await _tools.GetWorkItemHistory(999);
+
+        Assert.Contains("error", result);
+        Assert.Contains("Work item 999 not found", result);
+    }
+
+    [Fact]
+    public async Task GetWorkItemsHistory_WithBatchIds_ShouldReturnBatchResults()
+    {
+        var histories = new List<WorkItemHistoryResultDto>
+        {
+            new() { WorkItemId = 101, TotalTransitions = 1, Transitions = [] },
+            new() { WorkItemId = 102, TotalTransitions = 2, Transitions = [] }
+        };
+
+        _mockService
+            .Setup(s => s.GetWorkItemsHistoryAsync(It.Is<IEnumerable<int>>(ids => ids.Contains(101) && ids.Contains(102)), null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(histories);
+
+        var result = await _tools.GetWorkItemsHistory("101,102");
+
+        Assert.Contains("\"count\": 2", result);
+        Assert.Contains("\"workItemId\": 101", result);
+        Assert.Contains("\"workItemId\": 102", result);
+    }
+
+    [Fact]
+    public async Task GetWorkItemsHistory_WithNoValidIds_ShouldReturnError()
+    {
+        var result = await _tools.GetWorkItemsHistory("abc,xyz");
+
+        Assert.Contains("error", result);
+        Assert.Contains("No valid work item IDs provided", result);
+    }
+
+    #endregion
 }
