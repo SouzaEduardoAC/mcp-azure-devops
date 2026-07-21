@@ -166,3 +166,4 @@ yarn-error.log*
 *.orig
 *.bak
 /.claude
+.squad-state-*.json

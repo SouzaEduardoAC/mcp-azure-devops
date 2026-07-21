@@ -1257,6 +1257,165 @@ public sealed class AzureDevOpsService : IAzureDevOpsService, IDisposable
         }
     }
 
+    public async Task<WorkItemHistoryResultDto?> GetWorkItemHistoryAsync(
+        int workItemId,
+        string? project = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogDebug("Getting activity history for work item {WorkItemId}", workItemId);
+
+            var projectName = project ?? DefaultProject;
+            var updates = await WitClient.GetUpdatesAsync(
+                project: projectName,
+                id: workItemId,
+                cancellationToken: cancellationToken);
+
+            if (updates == null || updates.Count == 0)
+            {
+                return new WorkItemHistoryResultDto
+                {
+                    WorkItemId = workItemId,
+                    TotalTransitions = 0,
+                    Transitions = Array.Empty<WorkItemStateTransitionDto>()
+                };
+            }
+
+            var rawTransitions = new List<WorkItemStateTransitionDto>();
+
+            foreach (var update in updates)
+            {
+                if (update.Fields == null)
+                {
+                    continue;
+                }
+
+                string? newState = null;
+                string? oldState = null;
+                string? newBoardColumn = null;
+                string? oldBoardColumn = null;
+
+                if (update.Fields.TryGetValue("System.State", out var stateUpdate))
+                {
+                    newState = stateUpdate.NewValue?.ToString();
+                    oldState = stateUpdate.OldValue?.ToString();
+                }
+
+                foreach (var kvp in update.Fields)
+                {
+                    if (kvp.Key.Equals("System.BoardColumn", StringComparison.OrdinalIgnoreCase) ||
+                        kvp.Key.EndsWith("_Kanban.Column", StringComparison.OrdinalIgnoreCase))
+                    {
+                        newBoardColumn = kvp.Value.NewValue?.ToString();
+                        oldBoardColumn = kvp.Value.OldValue?.ToString();
+                        break;
+                    }
+                }
+
+                if (newState != null || newBoardColumn != null)
+                {
+                    var movedBy = update.RevisedBy?.DisplayName
+                        ?? update.RevisedBy?.UniqueName
+                        ?? update.RevisedBy?.Name
+                        ?? "Unknown";
+
+                    var timestamp = update.RevisedDate;
+
+                    rawTransitions.Add(new WorkItemStateTransitionDto
+                    {
+                        Revision = update.Rev != 0 ? update.Rev : update.Id,
+                        State = newState ?? string.Empty,
+                        PreviousState = oldState,
+                        BoardColumn = newBoardColumn,
+                        PreviousBoardColumn = oldBoardColumn,
+                        MovedBy = movedBy,
+                        Timestamp = timestamp
+                    });
+                }
+            }
+
+            var orderedTransitions = rawTransitions
+                .OrderBy(t => t.Timestamp)
+                .ToList();
+
+            for (var i = 0; i < orderedTransitions.Count; i++)
+            {
+                if (string.IsNullOrEmpty(orderedTransitions[i].State) && i > 0)
+                {
+                    orderedTransitions[i] = orderedTransitions[i] with
+                    {
+                        State = orderedTransitions[i - 1].State
+                    };
+                }
+
+                var nextTime = i < orderedTransitions.Count - 1
+                    ? orderedTransitions[i + 1].Timestamp
+                    : DateTime.UtcNow;
+
+                var durationHours = (nextTime - orderedTransitions[i].Timestamp).TotalHours;
+                if (durationHours >= 0)
+                {
+                    orderedTransitions[i] = orderedTransitions[i] with
+                    {
+                        DurationInHours = Math.Round(durationHours, 2)
+                    };
+                }
+            }
+
+            return new WorkItemHistoryResultDto
+            {
+                WorkItemId = workItemId,
+                TotalTransitions = orderedTransitions.Count,
+                Transitions = orderedTransitions
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting activity history for work item {WorkItemId}", workItemId);
+            throw;
+        }
+    }
+
+    public async Task<IReadOnlyList<WorkItemHistoryResultDto>> GetWorkItemsHistoryAsync(
+        IEnumerable<int> workItemIds,
+        string? project = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var ids = workItemIds.Distinct().ToList();
+            if (ids.Count == 0)
+            {
+                return Array.Empty<WorkItemHistoryResultDto>();
+            }
+
+            _logger.LogDebug("Getting batch activity history for {Count} work items", ids.Count);
+
+            using var semaphore = new SemaphoreSlim(10, 10);
+            var tasks = ids.Select(async id =>
+            {
+                await semaphore.WaitAsync(cancellationToken);
+                try
+                {
+                    return await GetWorkItemHistoryAsync(id, project, cancellationToken);
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            });
+
+            var results = await Task.WhenAll(tasks);
+            return results.Where(r => r != null).Select(r => r!).ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting batch activity history for work items");
+            throw;
+        }
+    }
+
     #region Git Operations
 
     public async Task<IReadOnlyList<RepositoryDto>> GetRepositoriesAsync(string? project = null, CancellationToken cancellationToken = default)

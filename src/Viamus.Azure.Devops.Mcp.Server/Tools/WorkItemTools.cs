@@ -51,6 +51,49 @@ public sealed class WorkItemTools
         return JsonSerializer.Serialize(workItem, JsonOptions);
     }
 
+    [McpServerTool(Name = "get_work_item_history")]
+    [Description("Gets the activity and state/column transition history for a specific work item. Shows when the card was moved to each state/column, by whom, and the duration spent in each state.")]
+    public async Task<string> GetWorkItemHistory(
+        [Description("The ID of the work item to retrieve history for")] int workItemId,
+        [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
+        CancellationToken cancellationToken = default)
+    {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
+        if (workItemId <= 0)
+        {
+            return JsonSerializer.Serialize(new { error = "Work item ID must be a positive integer" }, JsonOptions);
+        }
+
+        var history = await _azureDevOpsService.GetWorkItemHistoryAsync(workItemId, project, cancellationToken);
+        if (history is null)
+        {
+            return JsonSerializer.Serialize(new { error = $"Work item {workItemId} not found or has no activity history" }, JsonOptions);
+        }
+
+        return JsonSerializer.Serialize(history, JsonOptions);
+    }
+
+    [McpServerTool(Name = "get_work_items_history")]
+    [Description("Gets the activity and state/column transition histories for a batch of work items by their IDs (comma- or semicolon-separated). Uses concurrent requests to efficiently fetch timelines for multiple cards.")]
+    public async Task<string> GetWorkItemsHistory(
+        [Description("Comma- or semicolon-separated list of work item IDs (e.g., '123,456,789')")] string workItemIds,
+        [Description("The project name (optional if default project is configured)")] string? project = null,
+        [Description("The Azure DevOps organization alias or URL (optional if default organization is configured)")] string? organization = null,
+        CancellationToken cancellationToken = default)
+    {
+        using var organizationScope = _organizationContextAccessor.Use(organization);
+        var ids = ParseWorkItemIds(workItemIds);
+
+        if (ids.Count == 0)
+        {
+            return JsonSerializer.Serialize(new { error = "No valid work item IDs provided" }, JsonOptions);
+        }
+
+        var histories = await _azureDevOpsService.GetWorkItemsHistoryAsync(ids, project, cancellationToken);
+        return JsonSerializer.Serialize(new { count = histories.Count, itemHistories = histories }, JsonOptions);
+    }
+
     [McpServerTool(Name = "get_work_items")]
     [Description("Gets details of multiple Azure DevOps work items by their IDs. Useful for batch retrieval of work items.")]
     public async Task<string> GetWorkItems(
