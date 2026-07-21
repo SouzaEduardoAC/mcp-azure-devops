@@ -1320,11 +1320,11 @@ public sealed class AzureDevOpsService : IAzureDevOpsService, IDisposable
                         ?? update.RevisedBy?.Name
                         ?? "Unknown";
 
-                    var timestamp = update.RevisedDate ?? DateTime.UtcNow;
+                    var timestamp = update.RevisedDate;
 
                     rawTransitions.Add(new WorkItemStateTransitionDto
                     {
-                        Revision = update.Rev ?? update.Id ?? 0,
+                        Revision = update.Rev != 0 ? update.Rev : update.Id,
                         State = newState ?? string.Empty,
                         PreviousState = oldState,
                         BoardColumn = newBoardColumn,
